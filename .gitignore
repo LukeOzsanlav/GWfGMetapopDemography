@@ -2,3 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# don't push
+/Tracking data
