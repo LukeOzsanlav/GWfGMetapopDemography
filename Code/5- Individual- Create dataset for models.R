@@ -17,7 +17,7 @@
 
 
 ## Packages required
-pacman::p_load(tidyverse, data.table)
+pacman::p_load(tidyverse, data.table, lubridate)
 
 
 
@@ -139,126 +139,30 @@ Inc_ext3 <- left_join(Inc_ext2, ODBA, by = "Tag_year")
 
 
 
-## **** FIXED UP TO HERE ****##
+
+#-------------------------------------#
+#### 5. Add in Year centered dates ####
+#-------------------------------------#
+
+## Add year centered Greenland arrival date, laying data and failure data
+Inc_ext4 <- Inc_ext3 %>% 
+            drop_na(Green_arrive) %>% 
+            mutate(Green_yday = yday(ymd(Green_arrive)),
+                   attempt_yday =yday(ymd(attempt_start)),
+                   end_yday =yday(ymd(attempt_end))) %>% 
+            group_by(year) %>% 
+            mutate(Green_centre = Green_yday-median(Green_yday),
+                   laying_centre = attempt_yday-median(attempt_yday, na.rm = T),
+                   failure_centre = end_yday-median(end_yday, na.rm = T)) %>% 
+            ungroup() %>% 
+            select(-c(Green_yday, attempt_yday, end_yday))
 
 
-########
-## 5. ##
-######## Add in Year centred dates
-
-#### Add year centred Greenland arrival date ####
-
-## Create Greenland arival data columns for modelling
-## Change date into year day
-Inc_ext3$Green_yday <- as.numeric(yday(as.character(Inc_ext3$Green_arrive)))
-
-## center arrival date by each year
-## calculate median arrival date for each year
-median_dates <- Inc_ext3 %>% 
-                dplyr::group_by(year) %>% 
-                dplyr::summarise(median_arrival = floor(median(Green_yday, na.rm = T)))
-
-## create list of unique year in the data set
-Years <- unique(Inc_ext3$year)
-
-## run loop to extract each year from incubation and median dates data sets and caculate
-## a year centred Greenland arrival data
-for(i in 1:length(Years)){
-  
-  birds = filter(Inc_ext3, year == Years[i])
-  birds$Green_centre <- NA
-  median = filter(median_dates, year == Years[i])
-  
-  for(j in 1:nrow(birds)){
-    birds$Green_centre[j] = birds$Green_yday[j] - median$median_arrival
-  }
-  
-  if(i == 1){Inc_ext4 <- birds} 
-  else{Inc_ext4 <- rbind(Inc_ext4, birds)}
-  
-}
-
-
-
-
-#### Add year centred laying date ####
-
-## Creeat attempt start explanatories for models
-## Change date into year day
-Inc_ext4$attempt_yday <- as.numeric(yday(as.character(Inc_ext4$attempt_start)))
-
-## centre laying date by each year
-## calcualte median laying date for each year
-median_dates <- Inc_ext4 %>% 
-  group_by(year) %>% 
-  summarise(median_laying = floor(median(attempt_yday, na.rm = T)))
-
-## create list of unique year in the data set
-Years <- unique(Inc_ext4$year)
-
-## run loop to extract each year from incubation and median dates data sets and caculate
-## a year centred Greenland arrival data
-for(i in 1:length(Years)){
-  
-  birds = filter(Inc_ext4, year == Years[i])
-  birds$laying_centre <- NA
-  median = filter(median_dates, year == Years[i])
-  
-  for(j in 1:nrow(birds)){
-    birds$laying_centre[j] = birds$attempt_yday[j] - median$median_laying
-  }
-  
-  if(i == 1){Inc_ext5 <- birds} 
-  else{Inc_ext5 <- rbind(Inc_ext5, birds)}
-  
-}
-
-
-
-
-#### Add year centred failure date ####
-
-## Creeat attempt start explanatories for models
-## Change date into year day
-Inc_ext5$end_yday <- as.numeric(yday(as.character(Inc_ext5$attempt_end)))
-
-## centre laying date by each year
-## calcualte median laying date for each year
-median_dates <- Inc_ext5 %>% 
-  group_by(year) %>% 
-  summarise(median_end = floor(median(end_yday, na.rm = T)))
-
-## create list of unique years in the data set
-Years <- unique(Inc_ext5$year)
-
-## run loop to extract each year from incubation and median dates data sets and caculate
-## a year centred Greenland arrival data
-for(i in 1:length(Years)){
-  
-  birds = filter(Inc_ext5, year == Years[i])
-  birds$failure_centre <- NA
-  median = filter(median_dates, year == Years[i])
-  
-  for(j in 1:nrow(birds)){
-    birds$failure_centre[j] = birds$end_yday[j] - median$median_end
-  }
-  
-  if(i == 1){Inc_ext6 <- birds} 
-  else{Inc_ext6 <- rbind(Inc_ext6, birds)}
-  
-}
-
-## Now remove the year day columns created
-Inc_ext6$Green_yday <- NULL
-Inc_ext6$attempt_yday <- NULL
-Inc_ext6$end_yday <- NULL
-
-stopifnot(nrow(Inc_all) == nrow(Inc_ext6)) # stop if we have lost birds from the original data set
 
 ########
 ## 6. ##
 ######## Read out the final incubation data set
 
 ## read out this final incubation data set
-write.csv(Inc_ext6, file = "Outputs/Incubation_attempts_extra_update.csv", row.names = F)
+write.csv(Inc_ext4, file = "Outputs/Incubation_attempts_extra_update.csv", row.names = F)
 
