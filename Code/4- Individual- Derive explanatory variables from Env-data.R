@@ -12,7 +12,7 @@
 
 ##packages required
 pacman::p_load(tidyverse, data.table, lubridate, zoo)
-#library(RNCEP)
+
 
 
 
@@ -25,25 +25,23 @@ pacman::p_load(tidyverse, data.table, lubridate, zoo)
 ## 7. loop to calculate average Env variables over custom window lengths
 
 
-########
-## 1. ##
-######## Read in tracking data sets annotated with Env data
+
+
+#-------------------------------------------------------------#
+#### 1. Read in tracking data sets annotated with Env data ####
+#-------------------------------------------------------------#
 
 ## MODIS 500m daily Terra NDSI dataset
-setwd("~/PhD Documents/1_Tracking Data Chapters/Full annotated tracking data/NDVI")
-NDVI <- fread("Greenland White-fronted Goose tracking-5082989788520927040.csv")
+NDVI <- readRDS("Env data/NDVI.RDS")
 
 ## MODIS 500m 16day Terra NDVI dataset
-setwd("~/PhD Documents/1_Tracking Data Chapters/Full annotated tracking data/Snow Cover")
-Snow <- fread("Greenland White-fronted Goose tracking-6582111434781259392.csv")
+Snow <- readRDS("Env data/Snow_cover.RDS")
 
 ## NCEP precip and temp annotation, will have to be handled seperately
-setwd("~/PhD Documents/1_Tracking Data Chapters/Full annotated tracking data/NCEP annotation")
-GWF_clim <- fread("NCEP_precip_temp_anno_FULL.csv")
+GWF_clim <- fread("Env data/NCEP_precip_temp_anno_FULL.csv")
 
 ## Rename env data columns
 setnames(NDVI, old=c("MODIS Land Vegetation Indices 500m 16d Terra NDVI"), new=c("NDVI")) # NDVI
-
 setnames(Snow, old = c("MODIS Snow 500m Daily Terra NDSI Snow Cover"), new = c("snow")) # snow cover
 
 
@@ -52,11 +50,11 @@ setnames(Snow, old = c("MODIS Snow 500m Daily Terra NDSI Snow Cover"), new = c("
 
 
 
-########
-## 2. ##
-######## Combine and format Env data sets
+#-------------------------------------------#
+#### 2. Combine and format Env data sets ####
+#-------------------------------------------#
 
-#### Format NDVI and Snow sover data set ####
+## Format NDVI and Snow cover data set
 
 ## Combine the NDVI and snow cover data sets
 NDVI$Snow_cover <- Snow$snow
@@ -77,8 +75,7 @@ Env$Snow_cover <- as.numeric(Env$Snow_cover); Env$NDVI <- as.numeric(Env$NDVI)
 
 
 
-#### Fromat temp and precip data set ####
-
+## Format temp and precip data set
 GWF_clim$timestamp <- as.character(ymd_hms(GWF_clim$timestamp))
 
 ## convert temperatures in Kelvin to degrees centigrade
@@ -86,7 +83,6 @@ GWF_clim$temp_2mC <- GWF_clim$temp_2m - 273.15
 
 ## convert precip from m to mm
 GWF_clim$precip_ratemm <- GWF_clim$precip_rate*1000
-
 
 ## Create a absolute value of precip colum as currently it is a rate
 ## first create a time dif column, number of minutes between current fix and the next
@@ -102,14 +98,12 @@ GWF_clim$precip_tot <- GWF_clim$precip_ratemm*GWF_clim$timedif
 
 
 
-########
-## 3. ##
-######## Import migratory phenology data then filter greenland period
+#------------------------------------------------------------------#
+#### 3. Import migratory phenology data then filter Greenland period
+#------------------------------------------------------------------#
 
 ## read in phenology data
-setwd("~/PhD Documents/1_Tracking Data Chapters/Migration Phenology")
-Phenology <- fread("Full_phenology_fixes.csv")
-Phenology$V1 <- NULL
+Phenology <- fread("Outputs/Full_phenology_upto2021.csv")
 
 ## set a tag_year column
 Phenology$Tag_year <- paste(Phenology$ID, Phenology$year, sep = "_")
@@ -132,14 +126,18 @@ summary(GWF_Gr$NDVI)
 #### filter env data to just tag_years used in analysis ####
 
 ## Read in the incubation data set
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Breeding attempts")
-Inc_ext <- fread("Incubation_attempts_extra.csv")
+Inc <- read.csv("Outputs/Incubation_attempt_lengths_new.csv") # GPS+Acc tags
+Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
+Inc_gps$X <- NULL
+
+## bind the two together
+Inc <- rbind(Inc, Inc_gps)
 
 ## Join to env data sets
-Inc <- subset(Inc_ext, select = c(Tag_year, Acc))
+Inc <- subset(Inc, select = c(Tag_year, length))
 GWF_GR <- inner_join(GWF_Gr, Inc, by = "Tag_year")
 stopifnot( length(table(GWF_GR$Tag_year)) == length(table(Inc$Tag_year)) ) # check join worked properly
-length(table(GWF_GR$Tag_year))
+length(unique(GWF_GR$Tag_year))
 ## lost WHIT01_2018 but had very little data anyway so may as well get rid of
 
 
@@ -151,11 +149,6 @@ length(table(GWF_GR$Tag_year))
 ######## Resample the tracking data
 
 ## Resample  tracking data so each Tag_year has a similar number of daily fixes to caculate average Env conditions
-## Maybe calculate Snow cover seperately
-## Resampling function from Liam
-## adapted slightly to also loop through years as this makes the function quicker and I have 7+ years
-## need to specify a time difference and a unit that you want to resample too
-## resamp_times are the times that you want to resmple to for each day
 trackSubSampyear <- function(TD, dt=1, unit='days', resamp_times = resamp_times){
   
   TD <- TD[order(TD$timestamp),] 
@@ -254,14 +247,6 @@ length(unique(GWF_GR$tag_date)); length(unique(Mig_thinsnow$tag_date))
 ## Calculate Rolling avergaes for Temperature and precipitation throughout the breeding season
 ## Not all days have all three fixes but will just create an average value for each day first
 
-## Create weights column so summing of precip isnt effected by days with only 1 or two fixes
-#daily_fixes <- as.data.frame(table(GWF_clim$tag_date))
-#colnames(daily_fixes)[1] <- "tag_date"
-#GWF_clim <- full_join(GWF_clim, daily_fixes, by = "tag_date")
-#GWF_clim$weight <- 3/GWF_clim$Freq
-#GWF_clim$precipw <- GWF_clim$precip*GWF_clim$weight
-
-
 ## IMPROVEMENTS:
 ## Rolling averges are from daily averages so may want to create them with the RAW data instead using a loop, like in section 6
 
@@ -295,64 +280,47 @@ Rolling_weather <- Daily_weather %>%
                    unnest(cols = c(data, avg_temp2, sum_precip2, avg_temp3, sum_precip3, avg_temp4, sum_precip4, avg_temp5, sum_precip5, avg_temp10, sum_precip10))
 
 ## write out this file for use in other scripts
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Combining Env data/Daily rolling Env data")
-#write.csv(Rolling_weather, file = "Rolling_Env_data_per_day_breeding_season_evenfixes.csv", row.names = F)
+write.csv(Rolling_weather, file = "Outputs/Rolling_Env_data_per_day_breeding_season_evenfixes.csv", row.names = F)
 
 
 
-
-
-########
-## 6. ##
-######## Import breeding attempt data and create custom windows for each bird 
+#-------------------------------------------------------------------------------#
+#### 6. Import breeding attempt data and create custom windows for each bird ####
+#-------------------------------------------------------------------------------#
 
 ## read in Incubation attempts for GPS only and GPS + Acc tags
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Breeding attempts")
-Inc <- read.csv("Incubation_attempt_lengths.csv") # GPS+Acc tags
+Inc <- read.csv("Outputs/Incubation_attempt_lengths_new.csv") # GPS+Acc tags
 ## set as date objects
 Inc$attempt_end <- as.Date(Inc$attempt_end, format = "%Y-%m-%d")
 Inc$Green_arrive <- as.Date(Inc$Green_arrive, format = "%Y-%m-%d")
 Inc$attempt_start <- as.Date(Inc$attempt_start, format = "%Y-%m-%d")
 
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Breeding attempts")
-Inc_gps <- read.csv("Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
+Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
 Inc_gps$X <- NULL
-
 
 ## bind the two together
 Inc <- rbind(Inc, Inc_gps)
 
-
-## Read in the incubation data set
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Breeding attempts")
-Inc_ext <- fread("Incubation_attempts_extra.csv")
-
-## set as date objects
-Inc_ext$attempt_end <- as.Date(Inc_ext$attempt_end)
-Inc_ext$Green_arrive <- as.Date(Inc_ext$Green_arrive)
-Inc_ext$attempt_start <- as.Date(Inc_ext$attempt_start)
-
 ## create some extra columns for periods to calculate averge env conditions over
-Inc_ext$Green_arrive10 <- ifelse(is.na(Inc_ext$Green_arrive) == F, as.Date(Inc_ext$Green_arrive) + 10, NA)
-Inc_ext$Green_arrive10 <- as.Date(Inc_ext$Green_arrive10, origin = "1970-01-01")
+Inc$Green_arrive10 <- ifelse(is.na(Inc$Green_arrive) == F, as.Date(Inc$Green_arrive) + 10, NA)
+Inc$Green_arrive10 <- as.Date(Inc$Green_arrive10, origin = "1970-01-01")
 
-Inc_ext$Green_arrive20 <- ifelse(is.na(Inc_ext$Green_arrive) == F, as.Date(Inc_ext$Green_arrive) + 20, NA)
-Inc_ext$Green_arrive20 <- as.Date(Inc_ext$Green_arrive20, origin = "1970-01-01")
+Inc$Green_arrive20 <- ifelse(is.na(Inc$Green_arrive) == F, as.Date(Inc$Green_arrive) + 20, NA)
+Inc$Green_arrive20 <- as.Date(Inc$Green_arrive20, origin = "1970-01-01")
 
-Inc_ext$Green_arrive30 <- ifelse(is.na(Inc_ext$Green_arrive) == F, as.Date(Inc_ext$Green_arrive) + 30, NA)
-Inc_ext$Green_arrive30 <- as.Date(Inc_ext$Green_arrive30, origin = "1970-01-01")
-
-
+Inc$Green_arrive30 <- ifelse(is.na(Inc$Green_arrive) == F, as.Date(Inc$Green_arrive) + 30, NA)
+Inc$Green_arrive30 <- as.Date(Inc$Green_arrive30, origin = "1970-01-01")
 
 
 
 
-########
-## 7. ##
-######## loop to calculate average Env variables over custom window lengths (first 10 & 20 days post arrival)
 
 
-####---- Average TEMP and PRECIP ----####
+#---------------------------------------------------------------------------------------------------------------#
+#### 7. loop to calculate average Env variables over custom window lengths (first 10 & 20 days post arrival) ####
+#---------------------------------------------------------------------------------------------------------------#
+
+##---- Average TEMP and PRECIP ----##
 
 ## Create weights column so summing of temp isnt effected by days with only 1 or two fixes
 daily_fixestemp <- as.data.frame(table(GWF_clim$tag_date))
@@ -365,7 +333,7 @@ GWF_clim$timestamp <- ymd_hms(GWF_clim$timestamp)
 #GWF_Gr$timestamp <- as.POSIXct(GWF_Gr$timestamp, format= "%Y-%m-%d %H:%M:%S", tz= "GMT")
 
 ## create empty data set
-Env_clim <- subset(Inc_ext, select= c("Tag_year"))
+Env_clim <- subset(Inc, select= c("Tag_year"))
 Env_clim$Gr10temp <- NA
 Env_clim$Gr20temp <- NA
 Env_clim$Gr10precip <- NA
@@ -375,16 +343,16 @@ Env_clim$Gr20precip <- NA
 mean_temp <- function(x){weighted.mean(x= x$temp_2mC, w= x$weight, na.rm= T)}
 sum_precip <- function(x){sum(x$precip_tot, na.rm = T)}
 
-## create list of unique tag years in Inc_ext data set 
+## create list of unique tag years in Inc data set 
 tagyears <- unique(Env_clim$Tag_year)
 stopifnot(length(tagyears) == nrow(Env_clim))
 
-## loop to filter out tag_years in the Inc_ext data set then calculate ave conditions over various time windows
+## loop to filter out tag_years in the Inc data set then calculate ave conditions over various time windows
 for(i in 1:length(tagyears)) {
   
   ## filter out the data and phenological data for the current tag_year
   sub_data = filter(GWF_clim, Tag_year == paste(tagyears[i]))
-  Dates = filter(Inc_ext, Tag_year == paste(tagyears[i]))
+  Dates = filter(Inc, Tag_year == paste(tagyears[i]))
   
   message(i, " out of ", length(tagyears), " tags")
   
@@ -405,7 +373,7 @@ rm(Dates, sub_data, Gr10, Gr20)
 
 
 
-####---- Average NDVI ----####
+##---- Average NDVI ----##
 
 ## Create weights column so summing of NDVI isnt effected by days with only 1 or two fixes
 daily_fixesndvi <- as.data.frame(table(Mig_thindvi$tag_date))
@@ -418,23 +386,23 @@ Mig_thindvi$timestamp <- ymd_hms(Mig_thindvi$timestamp)
 #GWF_Gr$timestamp <- as.POSIXct(GWF_Gr$timestamp, format= "%Y-%m-%d %H:%M:%S", tz= "GMT")
 
 ## create empty data set
-Env_ndvi <- subset(Inc_ext, select= c("Tag_year"))
+Env_ndvi <- subset(Inc, select= c("Tag_year"))
 Env_ndvi$Gr10NDVI <- NA
 Env_ndvi$Gr20NDVI <- NA
 
 ## functions for use within the loop
 mean_NDVI <- function(x){weighted.mean(x= x$NDVI, w= x$weight, na.rm= T)}
 
-## create list of unique tag years in Inc_ext data set 
+## create list of unique tag years in Inc data set 
 tagyears <- unique(Env_ndvi$Tag_year)
 stopifnot(length(tagyears) == nrow(Env_ndvi))
 
-## loop to filter out tag_years in the Inc_ext data set then calculate ave conditions over various time windows
+## loop to filter out tag_years in the Inc data set then calculate ave conditions over various time windows
 for(i in 1:length(tagyears)) {
   
   ## filter out the data and phenological data for the current tag_year
   sub_data = filter(Mig_thindvi, Tag_year == paste(tagyears[i]))
-  Dates = filter(Inc_ext, Tag_year == paste(tagyears[i]))
+  Dates = filter(Inc, Tag_year == paste(tagyears[i]))
   
   message(i, " out of ", length(tagyears), " tags")
   
@@ -455,7 +423,7 @@ rm(Dates, sub_data, Gr10, Gr20)
 
 
 
-####---- Average SNOW COVER ----####
+##---- Average SNOW COVER ----##
 
 ## Create weights column so summing of precip isnt effected by days with only 1 or two fixes
 daily_fixessnow <- as.data.frame(table(Mig_thinsnow$tag_date))
@@ -468,23 +436,23 @@ Mig_thinsnow$timestamp <- ymd_hms(Mig_thinsnow$timestamp)
 #GWF_Gr$timestamp <- as.POSIXct(GWF_Gr$timestamp, format= "%Y-%m-%d %H:%M:%S", tz= "GMT")
 
 ## create empty data set
-Env_snow <- subset(Inc_ext, select= c("Tag_year"))
+Env_snow <- subset(Inc, select= c("Tag_year"))
 Env_snow$Gr10Sn <- NA
 Env_snow$Gr20Sn <- NA
 
 ## functions for use within the loop
 mean_snow <- function(x){mean(x= x$Snow_cover, na.rm= T)}
 
-## create list of unique tag years in Inc_ext data set 
+## create list of unique tag years in Inc data set 
 tagyears <- unique(Env_snow$Tag_year)
 stopifnot(length(tagyears) == nrow(Env_snow))
 
-## loop to filter out tag_years in the Inc_ext data set then calculate ave conditions over various time windows
+## loop to filter out tag_years in the Inc data set then calculate ave conditions over various time windows
 for(i in 1:length(tagyears)) {
   
   ## filter out the data and phenological data for the current tag_year
   sub_data = filter(Mig_thinsnow, Tag_year == paste(tagyears[i]))
-  Dates = filter(Inc_ext, Tag_year == paste(tagyears[i]))
+  Dates = filter(Inc, Tag_year == paste(tagyears[i]))
   
   message(i, " out of ", length(tagyears), " tags")
   
@@ -504,160 +472,13 @@ rm(Dates, sub_data, Gr10, Gr20)
 
 
 
-####---- Join together all variable ----####
+##---- Join together all variable ----##
 
 Env_all <- full_join(Env_clim, Env_ndvi, by = "Tag_year") %>% full_join(Env_snow, by = "Tag_year")
 Env_all <- filter(Env_all, !Tag_year == "WHIT01_2018")
 
 ## read out this data set for use in other scripts
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Combining Env data/Breeding Env data windows")
-#write.csv(Env_all, file = "Average_Env_data_from_arrival_windows_equalfixes.csv", row.names = F)
+write.csv(Env_all, file = "Outputs/Average_Env_data_from_arrival_windows_equalfixes.csv", row.names = F)
 
-
-
-
-
-
-
-########
-## 8. ##
-######## Day centre temp and precip over all years and then calculate 5/10/15 days windows back from failure
-
-
-####---- DAY CENTRE TEMP AND PRECIP VALUES ----####
-
-## Create data set with avergae value for each
-
-## set timestamp as lubridate object
-GWF_clim$timestamp <- ymd_hms(GWF_clim$timestamp)
-
-## summarise daily weather per tag day
-Daily_weather <- GWF_clim %>% group_by(ID, date) %>% summarise(avg_temp = mean(x= temp_2mC, na.rm= T), 
-                                                               sum_precip = sum(precip_tot, na.rm= T))
-## set a year day column
-Daily_weather$yearday <- yday(Daily_weather$date)
-table(Daily_weather$yearday)
-
-
-## calcualte median temp and precip for each year day
-median_dates <- Daily_weather %>% 
-                group_by(yearday) %>% 
-                summarise(median_temp = median(avg_temp, na.rm = T),
-                          median_precip = median(sum_precip, na.rm = T))
-
-## create list of unique year days in the data set
-Yeardays <- unique(median_dates$yearday)
-
-## run loop to extract each year day from temp and precip data set and then centre values
-for(i in 1:length(Yeardays)){
-  
-  Weather_day = filter(Daily_weather, yearday == Yeardays[i])
-  median = filter(median_dates, yearday == Yeardays[i])
-  
-  Weather_day$temp_centre <- NA
-  Weather_day$temp_centre <- Weather_day$avg_temp - median$median_temp
-  Weather_day$precip_centre <- NA
-  Weather_day$precip_centre <- Weather_day$sum_precip - median$median_precip
-  
-  
-  if(i == 1){Weather_centred <- Weather_day} 
-  else{Weather_centred <- rbind(Weather_centred, Weather_day)}
-  
-}
-
-
-## re order the data set by tag ID and date
-Weather_centred <- Weather_centred[order(Weather_centred$ID, Weather_centred$date),]
-
-## read out this file with day centred temp and precip values
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Combining Env data/Day centred env data")
-#write.csv(Weather_centred, file = "Yearday_centred_temp_precip.csv", row.names = F)
-
-
-
-####---- CALCULATE CONDITIONS BACK FROM END OF INCUBATION ----####
-
-## parse timestamp with lubridate
-#Weather_centred$timestamp <- ymd_hms(Weather_centred$timestamp)
-#GWF_Gr$timestamp <- as.POSIXct(GWF_Gr$timestamp, format= "%Y-%m-%d %H:%M:%S", tz= "GMT")
-Weather_centred$Tag_year <- paste0(Weather_centred$ID, "_", year(Weather_centred$date))
-
-## create empty data set to fill with values
-Inc_ext_attempt <- filter(Inc_ext, is.na(attempt_start)==F)
-Weather_fail <- subset(Inc_ext_attempt, select= c("Tag_year"))
-Weather_fail$fail5temp <- NA
-Weather_fail$fail10temp <- NA
-Weather_fail$fail15temp <- NA
-Weather_fail$fail5precip <- NA
-Weather_fail$fail10precip <- NA
-Weather_fail$fail15precip <- NA
-
-## functions for use within the loop
-mean_temp <- function(x){mean(x= x$temp_centre, na.rm= T)}
-sum_precip <- function(x){sum(x$precip_centre, na.rm = T)}
-
-## create list of unique tag years in Inc_ext data set 
-tagyears <- unique(Weather_fail$Tag_year)
-stopifnot(length(tagyears) == nrow(Weather_fail))
-
-## create lagged dates before nest failure for use in the loop
-Inc_ext_attempt$attempt_end5 <- Inc_ext_attempt$attempt_end - 5
-Inc_ext_attempt$attempt_end10 <- Inc_ext_attempt$attempt_end - 10
-Inc_ext_attempt$attempt_end15 <- Inc_ext_attempt$attempt_end - 15
-
-## loop to filter out tag_years in the Inc_ext data set then calculate ave conditions over various time windows
-for(i in 1:length(tagyears)) {
-  
-  ## filter out the data and phenological data for the current tag_year
-  sub_data = filter(Weather_centred, Tag_year == paste(tagyears[i]))
-  Dates = filter(Inc_ext_attempt, Tag_year == paste(tagyears[i]))
-  
-  message(i, " out of ", length(tagyears), " tags")
-  
-  ## calculate mean env varibales over various window lengths in relation to Greenland arrival
-  
-  fail5 = sub_data %>% filter(date <= ymd(Dates$attempt_end) & date > ymd(Dates$attempt_end5))
-  Weather_fail$fail5temp[i] <- mean_temp(fail5); Weather_fail$fail5precip[i] <- sum_precip(fail5)
-  
-  fail10 = sub_data %>% filter(date <= Dates$attempt_end & date > Dates$attempt_end10)
-  Weather_fail$fail10temp[i] <- mean_temp(fail10); Weather_fail$fail10precip[i] <- sum_precip(fail10)
-  
-  fail15 = sub_data %>% filter(date <= Dates$attempt_end & date > Dates$attempt_end15)
-  Weather_fail$fail15temp[i] <- mean_temp(fail15); Weather_fail$fail15precip[i] <- sum_precip(fail15)
-  
-}
-
-## remove this tag year as it isnt needed
-Weather_fail <- filter(Weather_fail, !Tag_year == "WHIT01_2018")
-
-## read out this new data set
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Combining Env data/Day centred env data")
-#write.csv(Weather_fail, file = "Failure_env_windows.csv", row.names = F)
-
-
-
-
-####---- Calculate rolling averages of temp and precip over the breeding season ----####
-
-## summarise rolling weather averages per tag day
-## fucntion to use in nested data frame for rolling mean and rolling sum
-roll_mean_temp <- function(x, width) {rollapply(x$temp_centre, width = width, FUN = mean, align = "right", fill = NA, na.rm= T)}
-roll_sum_precip <- function(x, width) {rollapply(x$precip_centre, width = width, FUN = sum, align = "right", fill = NA, na.rm= T)}
-
-## applying rolling mean/sum on nested data set with varying window widths
-Weather_centre <- subset(Weather_centred, select = c("ID", "date", "temp_centre", "precip_centre"))
-Roll_weather <- Weather_centre %>% 
-  group_by(ID) %>%  
-  nest() %>% 
-  mutate(avg_temp2 = purrr::map(data, roll_mean_temp, width = 2), sum_precip2 = purrr::map(data, roll_sum_precip, width = 2),
-         avg_temp3 = purrr::map(data, roll_mean_temp, width = 3), sum_precip3 = purrr::map(data, roll_sum_precip, width = 3),
-         avg_temp4 = purrr::map(data, roll_mean_temp, width = 4), sum_precip4 = purrr::map(data, roll_sum_precip, width = 4),
-         avg_temp5 = purrr::map(data, roll_mean_temp, width = 5), sum_precip5 = purrr::map(data, roll_sum_precip, width = 5),
-         avg_temp10 = purrr::map(data, roll_mean_temp, width = 10), sum_precip10 = purrr::map(data, roll_sum_precip, width = 10)) %>% 
-  unnest(cols = c(data, avg_temp2, sum_precip2, avg_temp3, sum_precip3, avg_temp4, sum_precip4, avg_temp5, sum_precip5, avg_temp10, sum_precip10))
-
-## write out this file for use in other scripts
-setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Combining Env data/Day centred env data")
-#write.csv(Roll_weather, file = "Rolling_centred_Env_data_per_day_breeding_season.csv", row.names = F)
 
 
