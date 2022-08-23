@@ -25,6 +25,9 @@ pacman::p_load(tidyverse, data.table, lubridate, zoo)
 ## 7. loop to calculate average Env variables over custom window lengths
 
 
+## NEED to add in the new env data as for some reason my old Env data does not have all of the tag_years that i need!!!
+
+
 
 
 #-------------------------------------------------------------#
@@ -38,12 +41,11 @@ NDVI <- readRDS("Env data/NDVI.RDS")
 Snow <- readRDS("Env data/Snow_cover.RDS")
 
 ## NCEP precip and temp annotation, will have to be handled seperately
-GWF_clim <- fread("Env data/NCEP_precip_temp_anno_FULL.csv")
+GWF_clim <- fread("Env data/NCEP_precip_temp_anno_EXTRABITS.csv")
 
 ## Rename env data columns
 setnames(NDVI, old=c("MODIS Land Vegetation Indices 500m 16d Terra NDVI"), new=c("NDVI")) # NDVI
 setnames(Snow, old = c("MODIS Snow 500m Daily Terra NDSI Snow Cover"), new = c("snow")) # snow cover
-
 
 
 
@@ -93,8 +95,7 @@ GWF_clim$timedif <- ifelse(!GWF_clim$Tag_year == lead(GWF_clim$Tag_year) | !GWF_
 GWF_clim$precip_tot <- GWF_clim$precip_ratemm*GWF_clim$timedif
 ## units of precip_tot are now g/m^2
 
-
-
+unique(GWF_clim$Tag_year)
 
 
 
@@ -127,11 +128,11 @@ summary(GWF_Gr$NDVI)
 
 ## Read in the incubation data set
 Inc <- read.csv("Outputs/Incubation_attempt_lengths_new.csv") # GPS+Acc tags
-Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
-Inc_gps$X <- NULL
 
-## bind the two together
-Inc <- rbind(Inc, Inc_gps)
+# Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
+# Inc_gps$X <- NULL
+# ## bind the two together
+# Inc <- rbind(Inc, Inc_gps)
 
 ## Join to env data sets
 Inc <- subset(Inc, select = c(Tag_year, length))
@@ -280,7 +281,7 @@ Rolling_weather <- Daily_weather %>%
                    unnest(cols = c(data, avg_temp2, sum_precip2, avg_temp3, sum_precip3, avg_temp4, sum_precip4, avg_temp5, sum_precip5, avg_temp10, sum_precip10))
 
 ## write out this file for use in other scripts
-write.csv(Rolling_weather, file = "Outputs/Rolling_Env_data_per_day_breeding_season_evenfixes.csv", row.names = F)
+write_csv(Rolling_weather, file = "Outputs/Rolling_Env_data_per_day_breeding_season_evenfixes.csv")
 
 
 
@@ -295,11 +296,13 @@ Inc$attempt_end <- as.Date(Inc$attempt_end, format = "%Y-%m-%d")
 Inc$Green_arrive <- as.Date(Inc$Green_arrive, format = "%Y-%m-%d")
 Inc$attempt_start <- as.Date(Inc$attempt_start, format = "%Y-%m-%d")
 
-Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
-Inc_gps$X <- NULL
-
-## bind the two together
-Inc <- rbind(Inc, Inc_gps)
+## **DELETE**
+# Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
+# Inc_gps$X <- NULL
+# 
+# ## bind the two together
+# Inc <- rbind(Inc, Inc_gps)
+## **DELETE**
 
 ## create some extra columns for periods to calculate averge env conditions over
 Inc$Green_arrive10 <- ifelse(is.na(Inc$Green_arrive) == F, as.Date(Inc$Green_arrive) + 10, NA)
@@ -478,7 +481,7 @@ Env_all <- full_join(Env_clim, Env_ndvi, by = "Tag_year") %>% full_join(Env_snow
 Env_all <- filter(Env_all, !Tag_year == "WHIT01_2018")
 
 ## read out this data set for use in other scripts
-write.csv(Env_all, file = "Outputs/Average_Env_data_from_arrival_windows_equalfixes.csv", row.names = F)
+write_csv(Env_all, file = "Outputs/Average_Env_data_from_arrival_windows_equalfixes.csv")
 
 
 

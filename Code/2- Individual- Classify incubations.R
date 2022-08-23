@@ -366,7 +366,7 @@ Breeders <- Inc %>%
 ## now remove the tag_years that are in the breeders training set
 ## so we have a data set of tag_years with unknown breeding outcome
 Females <- filter(Inc, !tag_year %in% unique(Breeders$tag_year))
-Females <- filter(Females, Sex == "F")
+Females <- filter(Females, Sex == "F" & Age == "A")
 
 
 ## Function that can be used form plotting for the reminder of the script

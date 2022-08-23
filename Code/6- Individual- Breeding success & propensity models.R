@@ -32,12 +32,16 @@ Roll$yday <- yday(as.Date(Roll$date))
 #---------------------------------------------#
 
 ## Read in the incubation data set
-Inc_ext <- fread("Outputs/Incubation_attempts_extra_update.csv")
+Inc_ext <- fread("Outputs/Incubation_attempts_for_models.csv")
 Inc_acc <- filter(Inc_ext, !Tag_year == "WHIT01_2018") %>% filter(Acc == "Y")
 
 ## add the Env data windows to the incubation data
 Window$Tag_year <- as.character(Window$Tag_year)
 Inc_acc <- inner_join(Inc_acc, Window, by = "Tag_year")
+
+## filter for the years with Env data, these are the ones used in the original paper draft
+## If i updated the env data then the data set would be larger
+Inc_acc <- Inc_acc %>%  drop_na(Gr10NDVI, Gr10Sn, Gr10temp)
 
 
 
@@ -94,16 +98,13 @@ Inc_acc2 <- inner_join(Inc_acc, Roll_sub, by = c("Tag_year", "yday"))
 ## re-scale the explanatories
 defer_sc <- Inc_acc # rename man data set for later use
 defer_sc <- defer_sc %>% 
-            mutate(Gr10precip = (Gr10precip-mean(Gr10precip))/sd(Gr10precip),
-                   total_ODBA = (total_ODBA-mean(total_ODBA))/sd(total_ODBA),
-                   staging_length = (staging_length-mean(staging_length))/sd(staging_length),
-                   Green_centre = (Green_centre-mean(Green_centre))/sd(Green_centre))
+            mutate(Gr10precip = (Gr10precip-mean(Gr10precip, na.rm=T))/sd(Gr10precip, na.rm=T),
+                   staging_length = (staging_length-mean(staging_length, na.rm=T))/sd(staging_length, na.rm=T),
+                   Green_centre = (Green_centre-mean(Green_centre, na.rm=T))/sd(Green_centre, na.rm=T))
 
-## remove rows with missing explanatories
-defer_sc <- defer_sc %>% drop_na(c(total_ODBA, staging_length)) # remove two indivdiauls due to lack of migration duration
 
 ## check for correlations between possible explantory variables
-test1 <- subset(defer_sc, select = c("Gr10precip", "Comp1", "Comp2", "Green_centre", "total_ODBA", "staging_length"))
+test1 <- subset(defer_sc, select = c("Gr10precip", "Comp1", "Comp2", "Green_centre", "staging_length"))
 correlation_matrix1 <- cor(test1) # can't have Green centre and Green yday, Green yday and Green10NDVI have cor of 0.47
 
 ## Make sure explanatories correct object class
@@ -176,21 +177,14 @@ breeders$year <- as.factor(breeders$year)
 ## scale the explanatories
 breed_sc <- breeders
 breed_sc <- breeders %>% 
-            mutate(Gr10precip = (Gr10precip-mean(Gr10precip))/sd(Gr10precip),
-                   total_ODBA = (total_ODBA-mean(total_ODBA))/sd(total_ODBA),
-                   staging_length = (staging_length-mean(staging_length))/sd(staging_length),
-                   Green_centre = (Green_centre-mean(Green_centre))/sd(Green_centre),
-                   laying_centre = (laying_centre-mean(laying_centre))/sd(laying_centre),
-                   breeding_lat = (breeding_lat-mean(breeding_lat))/sd(breeding_lat))
-
-breed_sc[, c("Gr10precip", "breeding_lat", "total_ODBA", "staging_length", "Green_centre", "laying_centre")] <- scale(
-  breed_sc[, c("Gr10precip", "breeding_lat", "total_ODBA", "staging_length", "Green_centre", "laying_centre")])
-
-## remove rows with missing explanatories
-breed_sc <- breed_sc %>% drop_na(c(staging_length, total_ODBA)) # lose two individuals
+            mutate(Gr10precip = (Gr10precip-mean(Gr10precip, na.rm=T))/sd(Gr10precip, na.rm=T),
+                   staging_length = (staging_length-mean(staging_length, na.rm=T))/sd(staging_length, na.rm=T),
+                   Green_centre = (Green_centre-mean(Green_centre, na.rm=T))/sd(Green_centre, na.rm=T),
+                   laying_centre = (laying_centre-mean(laying_centre, na.rm=T))/sd(laying_centre, na.rm=T),
+                   breeding_lat = (breeding_lat-mean(breeding_lat, na.rm=T))/sd(breeding_lat, na.rm=T))
 
 ## check for correlations between possible explantory variables
-test2 <- subset(breed_sc, select = c("Gr10precip", "breeding_lat", "total_ODBA", "staging_length", 
+test2 <- subset(breed_sc, select = c("Gr10precip", "breeding_lat", "staging_length", 
                                      "Green_centre", "laying_centre", "Comp1", "Comp2"))
 correlation_matrix2 <- cor(test2) # Note: breedng lat has moderate negative correlation with two PCA axis
 
@@ -204,20 +198,20 @@ breed_sc$sub_pop <- ifelse(breed_sc$Ringing.location == "WEXF" | breed_sc$Ringin
 #-----------------------------------#
 
 ## run the binomial GLM with 24 days as success cut off
-breed_mod24 <- glm(success24 ~ Comp1 + Gr10precip + laying_centre + Green_centre + staging_length ,
+breed_mod24 <- glm(success24 ~ Comp1 + Gr10precip + laying_centre + Green_centre + sub_pop + year ,
                    data = breed_sc,
                    family = binomial(link = "logit"))
 breed_mod24_ran <- glmer(success24 ~ Comp1 + Gr10precip + laying_centre + Green_centre + sub_pop + year + (1|ID),
                    data = breed_sc,
                    family = binomial(link = "logit"),
                    control=glmerControl(optimizer="bobyqa",
-                                        optCtrl=list(maxfun=2e5)))
+                                        optCtrl=list(maxfun=2e10)))
 
 ## chekc AICc of models
 AICc(breed_mod24); AICc(breed_mod24_ran)
-
+summary(breed_sc)
 ## get paramater estimates
-summary(breed_mod24_ran)
+summary(breed_mod24)
 drop1(breed_mod24_ran, test = "Chi") #liklihood ratio test
 
 

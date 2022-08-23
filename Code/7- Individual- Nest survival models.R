@@ -40,7 +40,7 @@ Roll$ID <- NULL
 #---------------------------------------------#
 
 ## Read in the incubation data set
-Inc_ext <- fread("Outputs/Incubation_attempts_extra_update.csv")
+Inc_ext <- fread("Outputs/Incubation_attempts_for_models.csv")
 Inc_breeders <- Inc_ext
 
 ## add tag_date column with tag ID and incubation start date
@@ -54,7 +54,7 @@ Inc_breeders$tag_date <- paste0(Inc_breeders$ID, "_", Inc_breeders$attempt_end)
 #-------------------------------------#
 
 ## add 10 day env windows from greenland arrival to main data set
-Inc_br <- inner_join(Inc_breeders, Window, by = "Tag_year")
+Inc_br <- inner_join(Inc_breeders, Window, by = "Tag_year") %>% drop_na(Gr10temp)
 
 ## examine correlation between climatic variables first
 sub1 <- subset(Inc_br, select = c("Gr10precip", "Gr10NDVI", "Gr10Sn", "Gr10temp", "Gr20precip", "Gr20NDVI", "Gr20Sn", "Gr20temp"))
@@ -126,7 +126,7 @@ Inc_br <- filter(Inc_br, Acc == "Y")
 
 ## examine which potential explanatories could be correlated
 test2 <- subset(Inc_br, select = c("breeding_lat", "Green_centre", "laying_centre", "Comp1", "Comp2",
-                                   "staging_length", "Gr10precip", "total_ODBA"))
+                                   "staging_length", "Gr10precip"))
 correlation_matrix2 <- cor(test2)
 
 ## set explanatories as correct class
@@ -141,13 +141,11 @@ Inc_br$high_lat <- as.factor(Inc_br$high_lat)
 
 ## scale the explanaotories
 Inc_br_sc <- Inc_br %>% 
-              mutate(Gr10precip = (Gr10precip-mean(Gr10precip))/sd(Gr10precip),
-                     total_ODBA = (total_ODBA-mean(total_ODBA))/sd(total_ODBA),
-                     staging_length = (staging_length-mean(staging_length))/sd(staging_length),
-                     Green_centre = (Green_centre-mean(Green_centre))/sd(Green_centre),
-                     mig_duration = (mig_duration-mean(mig_duration))/sd(mig_duration),
-                     laying_centre = (laying_centre-mean(laying_centre))/sd(laying_centre),
-                     failure_centre = (failure_centre-mean(failure_centre))/sd(failure_centre))
+              mutate(Gr10precip = (Gr10precip-mean(Gr10precip, na.rm = T))/sd(Gr10precip, na.rm = T),
+                     staging_length = (staging_length-mean(staging_length, na.rm = T))/sd(staging_length, na.rm = T),
+                     Green_centre = (Green_centre-mean(Green_centre, na.rm = T))/sd(Green_centre, na.rm = T),
+                     laying_centre = (laying_centre-mean(laying_centre, na.rm = T))/sd(laying_centre, na.rm = T),
+                     failure_centre = (failure_centre-mean(failure_centre, na.rm = T))/sd(failure_centre, na.rm = T))
 
 
 #-------------------------#
@@ -196,22 +194,22 @@ ms2_sub
 #-----------------------------------#
 
 ## create data set
-Surv_tab <- as.data.frame(Inc_breeders$Tag_year)
-Surv_tab$FirstFound <- yday(lubridate::dmy(Inc_breeders$attempt_start))
-Surv_tab$LastChecked <- yday(lubridate::dmy(Inc_breeders$attempt_end))
-Surv_tab$LastPresent <- as.numeric(yday(lubridate::dmy(Inc_breeders$attempt_end)))+1
-Surv_tab$Fate <- ifelse(Inc_breeders$success23 == 0, 1, 0)
+Surv_tab <- as.data.frame(Inc_br$Tag_year)
+Surv_tab$FirstFound <- yday(lubridate::ymd(Inc_br$attempt_start))
+Surv_tab$LastChecked <- yday(lubridate::ymd(Inc_br$attempt_end))
+Surv_tab$LastPresent <- as.numeric(yday(lubridate::ymd(Inc_br$attempt_end)))+1
+Surv_tab$Fate <- ifelse(Inc_br$success24 == 0, 1, 0)
 Surv_tab$AgeFound <- 1
 Surv_tab$AgeDay1 <- Surv_tab$AgeFound - Surv_tab$FirstFound
-Surv_tab$year <- year(lubridate::dmy(Inc_breeders$attempt_start))
-Surv_tab$laying_centre <- Inc_breeders$laying_centre
-Surv_tab$staging_length <- Inc_breeders$staging_length
-Surv_tab$mig_duration <- Inc_breeders$mig_duration
-Surv_tab$Green_centre <- Inc_breeders$Green_centre
-Surv_tab$Acc <- Inc_breeders$Acc
-Surv_tab$breeding_lat <- Inc_breeders$breeding_lat
-Surv_tab$total_ODBA <- Inc_breeders$total_ODBA
-Surv_tab$ID <- Inc_breeders$ID
+Surv_tab$year <- year(lubridate::ymd(Inc_br$attempt_start))
+Surv_tab$laying_centre <- Inc_br$laying_centre
+Surv_tab$staging_length <- Inc_br$staging_length
+Surv_tab$mig_duration <- Inc_br$mig_duration
+Surv_tab$Green_centre <- Inc_br$Green_centre
+Surv_tab$Acc <- Inc_br$Acc
+Surv_tab$breeding_lat <- Inc_br$breeding_lat
+Surv_tab$total_ODBA <- Inc_br$total_ODBA
+Surv_tab$ID <- Inc_br$ID
 
 ## join on Env data windows from Greenland arrival
 names(Surv_tab)[1] <- "Tag_year"
@@ -231,47 +229,12 @@ Exp_ph$Surv <- Surv(time=Exp_ph$Start, time2=Exp_ph$End, event=Exp_ph$Fail, type
 setnames(Exp_ph, old = "Start", new = "yday")
 Exp_ph <- inner_join(Exp_ph, Roll, by = c("Tag_year", "yday"))
 
-## remove rows with missing explanatories
-Exp_ph <- Exp_ph %>% drop_na(c(staging_length))
-
 
 ## Create 2 day weather windows that move in time
 ## Prepare weather data; change which variable selected to change moving window size
 Roll_sub <- subset(Roll, select=c("avg_temp5", "sum_precip5", "Tag_year", "yday"))
 Exp_ph$cutoff <- ifelse(Exp_ph$breeding_lat> 69.5, "High", "low")
 ggplot(Exp_ph, aes(x = yday, y = Tag_year, colour = sum_precip)) + geom_point() + facet_wrap(~year+cutoff)
-
-# ## Creates staggered yday column
-# Exp_ph$yday1 <- Exp_ph$yday-1; Exp_ph$yday2 <- Exp_ph$yday-2; Exp_ph$yday3 <- Exp_ph$yday-3; Exp_ph$yday4 <- Exp_ph$yday-4; Exp_ph$yday5 <- Exp_ph$yday-5; Exp_ph$yday6 <- Exp_ph$yday-6
-# Exp_ph$yday7 <- Exp_ph$yday-7; Exp_ph$yday8 <- Exp_ph$yday-8; Exp_ph$yday9 <- Exp_ph$yday-9; Exp_ph$yday10 <- Exp_ph$yday-10; Exp_ph$yday11 <- Exp_ph$yday-11; Exp_ph$yday12 <- Exp_ph$yday-12
-# Exp_ph$yday15 <- Exp_ph$yday-15
-# ## Join weather data to staggered dates
-# setnames(Roll_sub, old = c("yday", "avg_temp5", "sum_precip5"), new = c("yday1", "avg_temp2sub1", "sum_precip2sub1"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday1"))
-# setnames(Roll_sub, old = c("yday1", "avg_temp2sub1", "sum_precip2sub1"), new = c("yday2", "avg_temp2sub2", "sum_precip2sub2"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday2"))
-# setnames(Roll_sub, old = c("yday2", "avg_temp2sub2", "sum_precip2sub2"), new = c("yday3", "avg_temp2sub3", "sum_precip2sub3"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday3"))
-# setnames(Roll_sub, old = c("yday3", "avg_temp2sub3", "sum_precip2sub3"), new = c("yday4", "avg_temp2sub4", "sum_precip2sub4"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday4"))
-# setnames(Roll_sub, old = c("yday4", "avg_temp2sub4", "sum_precip2sub4"), new = c("yday5", "avg_temp2sub5", "sum_precip2sub5"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday5"))
-# setnames(Roll_sub, old = c("yday5", "avg_temp2sub5", "sum_precip2sub5"), new = c("yday6", "avg_temp2sub6", "sum_precip2sub6"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday6"))
-# setnames(Roll_sub, old = c("yday6", "avg_temp2sub6", "sum_precip2sub6"), new = c("yday7", "avg_temp2sub7", "sum_precip2sub7"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday7"))
-# setnames(Roll_sub, old = c("yday7", "avg_temp2sub7", "sum_precip2sub7"), new = c("yday8", "avg_temp2sub8", "sum_precip2sub8"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday8"))
-# setnames(Roll_sub, old = c("yday8", "avg_temp2sub8", "sum_precip2sub8"), new = c("yday9", "avg_temp2sub9", "sum_precip2sub9"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday9"))
-# setnames(Roll_sub, old = c("yday9", "avg_temp2sub9", "sum_precip2sub9"), new = c("yday10", "avg_temp2sub10", "sum_precip2sub10"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday10"))
-# setnames(Roll_sub, old = c("yday10", "avg_temp2sub10", "sum_precip2sub10"), new = c("yday11", "avg_temp2sub11", "sum_precip2sub11"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday11"))
-# setnames(Roll_sub, old = c("yday11", "avg_temp2sub11", "sum_precip2sub11"), new = c("yday12", "avg_temp2sub12", "sum_precip2sub12"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday12"))
-# setnames(Roll_sub, old = c("yday12", "avg_temp2sub12", "sum_precip2sub12"), new = c("yday15", "avg_temp2sub15", "sum_precip2sub15"))
-# Exp_ph <- inner_join(Exp_ph, Roll_sub, by = c("Tag_year", "yday15"))
 
 ## set year as correct class
 Exp_ph2 <- filter(Exp_ph, Acc == "Y")
@@ -280,7 +243,7 @@ table(Exp_ph2$year)
 
 ## check correlation between various predictor variables
 sub_cor <- subset(Exp_ph2, select = c("laying_centre", "Green_centre", "staging_length",
-                                      "Comp1", "Comp2", "breeding_lat", "total_ODBA", "Gr10precip"))
+                                      "Comp1", "Comp2", "breeding_lat", "Gr10precip"))
 co_matrix <- cor(sub_cor) ## NDVI windows starting from Greenland arrival and incubation end are correlated
 
 ## check for correlation between sub-population and continuous predictors
@@ -299,8 +262,7 @@ biserial.cor(Exp_ph2$avg_temp, Exp_ph2$cutoff)
 #### scale the explanatory
 Exp_ph2_sc <- Exp_ph2 %>% 
               mutate(Gr10precip = (Gr10precip-mean(Gr10precip))/sd(Gr10precip),
-                     total_ODBA = (total_ODBA-mean(total_ODBA))/sd(total_ODBA),
-                     staging_length = (staging_length-mean(staging_length))/sd(staging_length),
+                     staging_length = (staging_length-mean(staging_length, na.rm=T))/sd(staging_length, na.rm=T),
                      Green_centre = (Green_centre-mean(Green_centre))/sd(Green_centre),
                      sum_precip = (sum_precip-mean(sum_precip))/sd(sum_precip),
                      avg_temp = (avg_temp-mean(avg_temp))/sd(avg_temp),
@@ -339,7 +301,7 @@ mod_roll_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip10  + a
 AICc(mod.null, mod_roll_ran, mod_roll_ran2, mod_roll_ran3, mod_roll_ran4, mod_roll_ran5, mod_roll_ran10)
 
 ## get the summary from the best model
-summary(mod_roll_ran)
+summary(mod_roll_ran10)
 
 
 

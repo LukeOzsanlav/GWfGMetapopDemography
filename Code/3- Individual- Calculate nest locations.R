@@ -21,16 +21,19 @@ Inc$Acc <- "Y"
 ## set date format
 Inc <- Inc %>% mutate(across(c(attempt_end, Green_arrive, attempt_start, Ice_arrive_spring), ymd))
 
-## read in Incubation attempts (GPS only Tags)
-Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv")
-Inc_gps$Acc <- "N"
-Inc_gps$X <- NULL
+## **DELETE**
+# ## read in Incubation attempts (GPS only Tags)
+# Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv")
+# Inc_gps$Acc <- "N"
+# Inc_gps$X <- NULL
+# 
+# ## bind the two togther
+# Inc_all <- rbind(Inc, Inc_gps) # bind so have dataset of all tags
+## **DELETE**
 
-## bind the two togther
-Inc_all <- rbind(Inc, Inc_gps) # bind so have dataset of all tags
 
 ##filter the birds that were known to incubate
-Inc_br <- Inc_all %>% filter(is.na(attempt_start) == F)
+Inc_br <- Inc %>% filter(is.na(attempt_start) == F)
 
 ## set dates to as.date format
 Inc_br$attempt_start <- ymd_hms(paste0(Inc_br$attempt_start, "_", "12:00:00"))
@@ -80,7 +83,7 @@ med_nest_locs <- GWF.inc %>%
 #----------------------------------#
 
 ## read out the nest locations
-write.csv(med_nest_locs, file = "Nest_site_locations.csv", row.names = F)
+write.csv(med_nest_locs, file = "Outputs/Nest_site_locations.csv", row.names = F)
 
 
 

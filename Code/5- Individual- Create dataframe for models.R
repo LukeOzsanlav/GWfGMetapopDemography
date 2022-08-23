@@ -33,17 +33,19 @@ Inc$Acc <- "Y"
 Inc$Ice_arrive_spring <- as.Date(Inc$Ice_arrive_spring)
 Inc$Ice_dep_spring <- as.Date(Inc$Ice_dep_spring)
 
-## read in Incubation attempts (GPS only Tags)
-Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv")
-Inc_gps$Acc <- "N"
-Inc_gps$X <- NULL
-## set dates to as.date format
-Inc_gps$Ice_arrive_spring <- as.Date(Inc_gps$Ice_arrive_spring)
-Inc_gps$Ice_dep_spring <- as.Date(Inc_gps$Ice_dep_spring)
+## **DELETE**
+# ## read in Incubation attempts (GPS only Tags)
+# Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv")
+# Inc_gps$Acc <- "N"
+# Inc_gps$X <- NULL
+# ## set dates to as.date format
+# Inc_gps$Ice_arrive_spring <- as.Date(Inc_gps$Ice_arrive_spring)
+# Inc_gps$Ice_dep_spring <- as.Date(Inc_gps$Ice_dep_spring)
+## **DELETE**
 
 
-## bind the two togther
-Inc_all <- rbind(Inc, Inc_gps) # bind so have dataset of all tags
+## change name
+Inc_all <- Inc 
 
 
 ## create binary column for success/fail and attempt/defer
@@ -145,5 +147,5 @@ Inc_ext4 <- Inc_ext2 %>%
 #-------------------------------------------------#
 
 ## read out this final incubation data set
-write.csv(Inc_ext4, file = "Outputs/Incubation_attempts_extra_update.csv", row.names = F)
+write.csv(Inc_ext4, file = "Outputs/Incubation_attempts_for_models.csv", row.names = F)
 
