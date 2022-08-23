@@ -27,15 +27,13 @@ pacman::p_load(tidyverse, data.table, lubridate)
 #---------------------------------------------#
 
 ## read in Incubation attempts (GPS + Acc Tags)
-#setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Breeding attempts")
-Inc <- read.csv("Outputs/Incubation_attempt_lengths.csv")
+Inc <- read.csv("Outputs/Incubation_attempt_lengths_new.csv")
 Inc$Acc <- "Y"
 ## set dates to as.date format
 Inc$Ice_arrive_spring <- as.Date(Inc$Ice_arrive_spring)
 Inc$Ice_dep_spring <- as.Date(Inc$Ice_dep_spring)
 
 ## read in Incubation attempts (GPS only Tags)
-#setwd("~/PhD Documents/1_Tracking Data Chapters/Incuabtion Lengths/Breeding attempts")
 Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv")
 Inc_gps$Acc <- "N"
 Inc_gps$X <- NULL
@@ -123,29 +121,12 @@ Inc_ext2 <- full_join(Inc_ext, nest_locs, by = "Tag_year")
 
 
 
-
 #-------------------------------------#
-#### 4. Join on migratory duration ####
-#-------------------------------------#
-
-## read in migration ODBA data
-#setwd("~/PhD Documents/1_Tracking Data Chapters/Migration Flight/Ice-Green Migration/Script Outputs")
-ODBA <- fread("Outputs/Ice_Green_migration_duration_ODBA.csv")
-
-## bind to the incubation dataset
-ODBA <- subset(ODBA, select = c("tag_year", "duration", "total_ODBA"))
-setnames(ODBA, old = c("duration", "tag_year"), new = c("mig_duration", "Tag_year"))
-Inc_ext3 <- left_join(Inc_ext2, ODBA, by = "Tag_year")
-
-
-
-
-#-------------------------------------#
-#### 5. Add in Year centered dates ####
+#### 4. Add in Year centered dates ####
 #-------------------------------------#
 
 ## Add year centered Greenland arrival date, laying data and failure data
-Inc_ext4 <- Inc_ext3 %>% 
+Inc_ext4 <- Inc_ext2 %>% 
             drop_na(Green_arrive) %>% 
             mutate(Green_yday = yday(ymd(Green_arrive)),
                    attempt_yday =yday(ymd(attempt_start)),
@@ -159,9 +140,9 @@ Inc_ext4 <- Inc_ext3 %>%
 
 
 
-########
-## 6. ##
-######## Read out the final incubation data set
+#-------------------------------------------------#
+#### 5. Read out the final incubation data set ####
+#-------------------------------------------------#
 
 ## read out this final incubation data set
 write.csv(Inc_ext4, file = "Outputs/Incubation_attempts_extra_update.csv", row.names = F)
