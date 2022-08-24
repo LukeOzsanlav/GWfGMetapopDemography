@@ -21,17 +21,6 @@ Inc$Acc <- "Y"
 ## set date format
 Inc <- Inc %>% mutate(across(c(attempt_end, Green_arrive, attempt_start, Ice_arrive_spring), ymd))
 
-## **DELETE**
-# ## read in Incubation attempts (GPS only Tags)
-# Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv")
-# Inc_gps$Acc <- "N"
-# Inc_gps$X <- NULL
-# 
-# ## bind the two togther
-# Inc_all <- rbind(Inc, Inc_gps) # bind so have dataset of all tags
-## **DELETE**
-
-
 ##filter the birds that were known to incubate
 Inc_br <- Inc %>% filter(is.na(attempt_start) == F)
 

@@ -28,9 +28,11 @@ Roll <- fread("Outputs/Rolling_Env_data_per_day_breeding_season_evenfixes.csv")
 
 ## Add extra columns to Roll data set so will bind later on to incubation data
 Roll <- separate(Roll, col = tag_date, into = c("ID", "date"), sep = "_")
-Roll$Tag_year <- paste0(Roll$ID, "_", year(as.Date(Roll$date)))
+Roll$Tag_year <- Roll$tag_year
 Roll$yday <- yday(as.Date(Roll$date))
 Roll$ID <- NULL
+Roll$year <- NULL
+Roll$tag_year <- NULL
 
 
 
@@ -54,7 +56,8 @@ Inc_breeders$tag_date <- paste0(Inc_breeders$ID, "_", Inc_breeders$attempt_end)
 #-------------------------------------#
 
 ## add 10 day env windows from greenland arrival to main data set
-Inc_br <- inner_join(Inc_breeders, Window, by = "Tag_year") %>% drop_na(Gr10temp)
+Inc_br <- inner_join(Inc_breeders, Window, by = "Tag_year") %>% drop_na(attempt_start)
+Inc_br <- filter(Inc_br, !year == 2017)
 
 ## examine correlation between climatic variables first
 sub1 <- subset(Inc_br, select = c("Gr10precip", "Gr10NDVI", "Gr10Sn", "Gr10temp", "Gr20precip", "Gr20NDVI", "Gr20Sn", "Gr20temp"))
@@ -77,9 +80,9 @@ plot(Clim_PCA)
 loadings <- as.data.frame(Clim_PCA$loadings[,1:3])
 loadings$Symbol <- row.names(loadings)
 loadings <- tidyr::gather(loadings, "Component", "Weight", -Symbol)
-ggplot(loadings, aes(x=Symbol, y = Weight)) + 
-  geom_bar(stat='identity') + 
-  facet_grid(Component ~ ., scales = "free_y")
+# ggplot(loadings, aes(x=Symbol, y = Weight)) + 
+#   geom_bar(stat='identity') + 
+#   facet_grid(Component ~ ., scales = "free_y")
 
 ## plot just the component 1 loadings
 loadings %>% 
@@ -117,26 +120,26 @@ Inc_br$Comp2 <- Clim_PCA$scores[,2]
 #### 4.1 Prepare data set for model ####
 #--------------------------------------#
 
-## remove rows with missing explanatories
-Inc_br <- Inc_br %>% drop_na(staging_length)
-
-## filter out the birds that deffered
+## filter out the birds that deferred
 Inc_br <- filter(Inc_br, is.na(attempt_start) == F)
-Inc_br <- filter(Inc_br, Acc == "Y")
 
 ## examine which potential explanatories could be correlated
 test2 <- subset(Inc_br, select = c("breeding_lat", "Green_centre", "laying_centre", "Comp1", "Comp2",
                                    "staging_length", "Gr10precip"))
 correlation_matrix2 <- cor(test2)
 
-## set explanatories as correct class
-Inc_br$year <- as.factor(as.character(Inc_br$year))
+## set explanatories as correct class and add extra columns for models
+Inc_br <- Inc_br %>% 
+          mutate(year = as.factor(as.character(year)),
+                 Fate24 = ifelse(success24 == 0, 1, 0),
+                 high_lat = ifelse(breeding_lat > 69.5, "high", "low"),
+                 high_lat = as.factor(high_lat),
+                 sub_pop = ifelse(Ringing.location == "WEXF" | Ringing.location == "SESK", "HVAN", "LOWLANDS"),
+                 sub_pop = as.factor(sub_pop))
 
-## create nest fate column
-Inc_br$Fate23 <- ifelse(Inc_br$success23 == 0, 1, 0)
-Inc_br$Fate24 <- ifelse(Inc_br$success24 == 0, 1, 0)
-Inc_br$high_lat <- ifelse(Inc_br$breeding_lat > 69.5, "high", "low")
-Inc_br$high_lat <- as.factor(Inc_br$high_lat)
+## Can just filter out the Islay and Wexford data at this stage if required
+# Inc_br <- filter(Inc_br, Ringing.location %in% c("ISLA", "WEXF"))
+# Inc_br$sub_pop <- as.factor(Inc_br$Ringing.location)
 
 
 ## scale the explanaotories
@@ -145,22 +148,27 @@ Inc_br_sc <- Inc_br %>%
                      staging_length = (staging_length-mean(staging_length, na.rm = T))/sd(staging_length, na.rm = T),
                      Green_centre = (Green_centre-mean(Green_centre, na.rm = T))/sd(Green_centre, na.rm = T),
                      laying_centre = (laying_centre-mean(laying_centre, na.rm = T))/sd(laying_centre, na.rm = T),
-                     failure_centre = (failure_centre-mean(failure_centre, na.rm = T))/sd(failure_centre, na.rm = T))
+                     failure_centre = (failure_centre-mean(failure_centre, na.rm = T))/sd(failure_centre, na.rm = T),
+                     Comp1 = (Comp1-mean(Comp1, na.rm = T))/sd(Comp1, na.rm = T))
 
 
-#-------------------------#
-#### 4.2 Cox ph models ####
-#-------------------------#
+
+#----------------------------#
+#### 4.2 Run Cox ph model ####
+#----------------------------#
 
 # time to event model
-time_model24 <- coxph(Surv(length, Fate24) ~ Gr10precip + Gr10Sn + laying_centre + Green_centre + year,
+time_model24 <- coxme(Surv(length, Fate24) ~ Gr10precip + Comp1 + sub_pop + laying_centre + Green_centre + year + (1|ID),
                       data= Inc_br_sc)
 
 summary(time_model24)
-drop1(time_model24, test = "Chi")
+confint(time_model24)
 
 
-## Checking Cox ph model assumptions 
+
+#------------------------#
+#### 4.3 Model checks ####
+#------------------------#
 
 ## check deviance residuals vs predicted values
 ggcoxdiagnostics(time_model24)
@@ -170,7 +178,11 @@ ggplot(data = NULL, aes(x=Inc_br_sc$year, y=resid(time_model24, type = "martinga
 ggcoxzph(cox.zph(time_model24)) #  For each covariate it produces plots with scaled Schoenfeld residuals against the time.
 
 
-####---- Use MuMIn to perfrom model selection ----####
+
+
+#---------------------------#
+#### 4.4 Model selection ####
+#---------------------------#
 
 ## change default "na.omit" to prevent models being fitted to different datasets
 options(na.action = "na.fail") 
@@ -180,8 +192,21 @@ ms2 <- MuMIn::dredge(time_model24, trace = 2)
 
 ## perform model selection
 ms2_sub <- subset(ms2, !nested(.), recalc.weights=T)
-ms2_sub <- subset(ms2_sub, delta <= 56, recalc.weights=T)
+ms2_sub <- subset(ms2_sub, delta <= 6, recalc.weights=T)
 ms2_sub
+
+
+## run the top models from the dredge to get the confidence intervals
+time_model1 <- coxme(Surv(length, Fate24) ~ Green_centre + sub_pop + (1|ID),
+                     data= Inc_br_sc)
+confint(time_model1)
+summary(time_model1)
+
+time_model2 <- coxme(Surv(length, Fate24) ~ Green_centre + Comp1 + (1|ID),
+                     data= Inc_br_sc)
+confint(time_model2)
+summary(time_model2)
+
 
 
 
@@ -197,7 +222,12 @@ ms2_sub
 Surv_tab <- as.data.frame(Inc_br$Tag_year)
 Surv_tab$FirstFound <- yday(lubridate::ymd(Inc_br$attempt_start))
 Surv_tab$LastChecked <- yday(lubridate::ymd(Inc_br$attempt_end))
-Surv_tab$LastPresent <- as.numeric(yday(lubridate::ymd(Inc_br$attempt_end)))+1
+Surv_tab$LastPresent <- as.numeric(yday(lubridate::ymd(Inc_br$attempt_end)))+1 
+#*** USE this for nest age aligned analysis
+# Surv_tab$FirstFound <- 0
+# Surv_tab$LastChecked <- as.numeric(Inc_br$length)-1
+# Surv_tab$LastPresent <- as.numeric(Inc_br$length)
+#***
 Surv_tab$Fate <- ifelse(Inc_br$success24 == 0, 1, 0)
 Surv_tab$AgeFound <- 1
 Surv_tab$AgeDay1 <- Surv_tab$AgeFound - Surv_tab$FirstFound
@@ -210,6 +240,8 @@ Surv_tab$Acc <- Inc_br$Acc
 Surv_tab$breeding_lat <- Inc_br$breeding_lat
 Surv_tab$total_ODBA <- Inc_br$total_ODBA
 Surv_tab$ID <- Inc_br$ID
+Surv_tab$RingLoc <- Inc_br$Ringing.location
+Surv_tab$attempt_start <- Inc_br$attempt_start
 
 ## join on Env data windows from Greenland arrival
 names(Surv_tab)[1] <- "Tag_year"
@@ -225,19 +257,16 @@ Exp_ph <- expand.nest.data.ph(Surv_tag2)
 Exp_ph$Fail <- ifelse(Exp_ph$Fate == 1 & (Exp_ph$LastPresent) == Exp_ph$End, 1, 0)
 Exp_ph$Surv <- Surv(time=Exp_ph$Start, time2=Exp_ph$End, event=Exp_ph$Fail, type="counting")
 
+
 ## Now join on the rolling env windows for each day of the incubation
-setnames(Exp_ph, old = "Start", new = "yday")
-Exp_ph <- inner_join(Exp_ph, Roll, by = c("Tag_year", "yday"))
+#Exp_ph$yday <- yday(lubridate::ymd(Exp_ph$attempt_start) + lubridate::days(Exp_ph$NestAge)) #*** USE this for nest age aligned analysis
+Exp_ph <- Exp_ph %>%  dplyr::rename(yday = Start)
+Exp_ph2 <- inner_join(Exp_ph, Roll, by = c("Tag_year", "yday"))
 
-
-## Create 2 day weather windows that move in time
-## Prepare weather data; change which variable selected to change moving window size
-Roll_sub <- subset(Roll, select=c("avg_temp5", "sum_precip5", "Tag_year", "yday"))
-Exp_ph$cutoff <- ifelse(Exp_ph$breeding_lat> 69.5, "High", "low")
-ggplot(Exp_ph, aes(x = yday, y = Tag_year, colour = sum_precip)) + geom_point() + facet_wrap(~year+cutoff)
+## Create cut off variable
+Exp_ph2$cutoff <- ifelse(Exp_ph2$breeding_lat> 69.5, "High", "low")
 
 ## set year as correct class
-Exp_ph2 <- filter(Exp_ph, Acc == "Y")
 Exp_ph2$year <- as.factor(Exp_ph2$year)
 table(Exp_ph2$year)
 
@@ -258,6 +287,11 @@ biserial.cor(Exp_ph2$avg_temp, Exp_ph2$cutoff)
 #----------------------#
 #### 5.2 Run models ####
 #----------------------#
+
+## Add on a sub-population variable
+Exp_ph2$sub_pop <- ifelse(Exp_ph2$RingLoc == "WEXF" | Exp_ph2$RingLoc == "SESK", "HVAN", "LOWLANDS")
+Exp_ph2$sub_pop <- as.factor(Exp_ph2$sub_pop)
+
 
 #### scale the explanatory
 Exp_ph2_sc <- Exp_ph2 %>% 
@@ -281,29 +315,32 @@ Exp_ph2_sc <- Exp_ph2 %>%
 
 
 #### Run models with varying  window length of time-dependent climatic variables 
+Exp_ph2_sc <- filter(Exp_ph2_sc, !year ==2021)
+Exp_ph2_sc$year <- as.character(Exp_ph2_sc$year)
 
-mod.null <-  coxme(Surv ~ (1|ID), data= Exp_ph2)
+mod.null <-  coxme(Surv ~ (1|ID), data= Exp_ph2_sc)
 
-mod_roll_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip + avg_temp + laying_centre + Green_centre + year + (1|ID), 
+mod_roll_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip + avg_temp + laying_centre + Green_centre + year + (1|ID), 
                         data= Exp_ph2_sc)
-mod_roll_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip2  + avg_temp2 + laying_centre + Green_centre + year + (1|ID), 
+mod_roll_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip2  + avg_temp2 + laying_centre + Green_centre + (1|ID), 
                          data= Exp_ph2_sc)
-mod_roll_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip3  + avg_temp3 + laying_centre + Green_centre + year + (1|ID), 
+mod_roll_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip3  + avg_temp3 + laying_centre + Green_centre + (1|ID), 
                          data= Exp_ph2_sc)
-mod_roll_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip4  + avg_temp4 + laying_centre + Green_centre + year + (1|ID), 
+mod_roll_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip4  + avg_temp4 + laying_centre + Green_centre + (1|ID), 
                          data= Exp_ph2_sc)
-mod_roll_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip5  + avg_temp5 + laying_centre + year + (1|ID), 
+mod_roll_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip5  + avg_temp5 + laying_centre + + Green_centre + (1|ID), 
                          data= Exp_ph2_sc)
-mod_roll_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip10  + avg_temp10 + laying_centre + Green_centre + year + (1|ID), 
+mod_roll_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip10  + avg_temp10 + laying_centre + Green_centre + (1|ID), 
                           data= Exp_ph2_sc)
 
 ## compare the different models with AICc
 AICc(mod.null, mod_roll_ran, mod_roll_ran2, mod_roll_ran3, mod_roll_ran4, mod_roll_ran5, mod_roll_ran10)
 
 ## get the summary from the best model
-summary(mod_roll_ran10)
+summary(mod_roll_ran)
 
-
+# summary(Exp_ph2_sc$sum_precip)
+# ggplot(Exp_ph2_sc) + geom_point(aes(y=Tag_year, x= yday, colour = sum_precip)) + theme_bw() + scale_color_viridis_b()
 
 
 #------------------------#
@@ -322,7 +359,7 @@ ggcoxzph(cox.zph(mod_roll_check)) #  For each covariate it produces plots with s
 
 
 #---------------------------#
-#### 5.3 Model Selection ####
+#### 5.4 Model Selection ####
 #---------------------------#
 
 ## change default "na.omit" to prevent models being fitted to different datasets

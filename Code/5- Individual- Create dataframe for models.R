@@ -28,20 +28,11 @@ pacman::p_load(tidyverse, data.table, lubridate)
 
 ## read in Incubation attempts (GPS + Acc Tags)
 Inc <- read.csv("Outputs/Incubation_attempt_lengths_new.csv")
-Inc$Acc <- "Y"
+Inc$UK_dep <- NULL
+
 ## set dates to as.date format
 Inc$Ice_arrive_spring <- as.Date(Inc$Ice_arrive_spring)
 Inc$Ice_dep_spring <- as.Date(Inc$Ice_dep_spring)
-
-## **DELETE**
-# ## read in Incubation attempts (GPS only Tags)
-# Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv")
-# Inc_gps$Acc <- "N"
-# Inc_gps$X <- NULL
-# ## set dates to as.date format
-# Inc_gps$Ice_arrive_spring <- as.Date(Inc_gps$Ice_arrive_spring)
-# Inc_gps$Ice_dep_spring <- as.Date(Inc_gps$Ice_dep_spring)
-## **DELETE**
 
 
 ## change name
@@ -52,15 +43,6 @@ Inc_all <- Inc
 Inc_all$attempt <- ifelse(Inc_all$length == 0, 0, 1)
 Inc_all$success24 <- ifelse(Inc_all$length >=24, 1, 
                             ifelse(Inc_all$length == 0, NA, 0))
-
-Inc_all$successall <- ifelse(Inc_all$length >=24, 1, 
-                             ifelse(Inc_all$length == 0, 0, 0))
-
-## create ordinal column with different breeding categories
-Inc_all$ordinal <-  ifelse(Inc_all$length == 0, "defer", 
-                           ifelse(Inc_all$length > 0 & Inc_all$length <= 11, "early.fail",
-                                  ifelse(Inc_all$length > 11 & Inc_all$length <= 22, "late.fail", 
-                                         ifelse(Inc_all$length > 22, "success", "error"))))
 
 ## create column for staging length
 Inc_all$staging_length <- as.numeric(Inc_all$Ice_dep_spring - Inc_all$Ice_arrive_spring)
@@ -147,5 +129,5 @@ Inc_ext4 <- Inc_ext2 %>%
 #-------------------------------------------------#
 
 ## read out this final incubation data set
-write.csv(Inc_ext4, file = "Outputs/Incubation_attempts_for_models.csv", row.names = F)
+write_csv(Inc_ext4, file = "Outputs/Incubation_attempts_for_models.csv")
 

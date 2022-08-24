@@ -33,11 +33,10 @@ Roll$yday <- yday(as.Date(Roll$date))
 
 ## Read in the incubation data set
 Inc_ext <- fread("Outputs/Incubation_attempts_for_models.csv")
-Inc_acc <- filter(Inc_ext, !Tag_year == "WHIT01_2018") %>% filter(Acc == "Y")
 
 ## add the Env data windows to the incubation data
 Window$Tag_year <- as.character(Window$Tag_year)
-Inc_acc <- inner_join(Inc_acc, Window, by = "Tag_year")
+Inc_acc <- inner_join(Inc_ext, Window, by = "Tag_year")
 
 ## filter for the years with Env data, these are the ones used in the original paper draft
 ## If i updated the env data then the data set would be larger
@@ -96,7 +95,7 @@ Inc_acc2 <- inner_join(Inc_acc, Roll_sub, by = c("Tag_year", "yday"))
 #-----------------------------------------------#
 
 ## re-scale the explanatories
-defer_sc <- Inc_acc # rename man data set for later use
+defer_sc <- Inc_acc # rename main data set for later use
 defer_sc <- defer_sc %>% 
             mutate(Gr10precip = (Gr10precip-mean(Gr10precip, na.rm=T))/sd(Gr10precip, na.rm=T),
                    staging_length = (staging_length-mean(staging_length, na.rm=T))/sd(staging_length, na.rm=T),
@@ -181,7 +180,8 @@ breed_sc <- breeders %>%
                    staging_length = (staging_length-mean(staging_length, na.rm=T))/sd(staging_length, na.rm=T),
                    Green_centre = (Green_centre-mean(Green_centre, na.rm=T))/sd(Green_centre, na.rm=T),
                    laying_centre = (laying_centre-mean(laying_centre, na.rm=T))/sd(laying_centre, na.rm=T),
-                   breeding_lat = (breeding_lat-mean(breeding_lat, na.rm=T))/sd(breeding_lat, na.rm=T))
+                   breeding_lat = (breeding_lat-mean(breeding_lat, na.rm=T))/sd(breeding_lat, na.rm=T),
+                   Comp1 = (Comp1-mean(Comp1, na.rm=T))/sd(Comp1, na.rm=T))
 
 ## check for correlations between possible explantory variables
 test2 <- subset(breed_sc, select = c("Gr10precip", "breeding_lat", "staging_length", 
@@ -201,17 +201,19 @@ breed_sc$sub_pop <- ifelse(breed_sc$Ringing.location == "WEXF" | breed_sc$Ringin
 breed_mod24 <- glm(success24 ~ Comp1 + Gr10precip + laying_centre + Green_centre + sub_pop + year ,
                    data = breed_sc,
                    family = binomial(link = "logit"))
-breed_mod24_ran <- glmer(success24 ~ Comp1 + Gr10precip + laying_centre + Green_centre + sub_pop + year + (1|ID),
+
+## can't add year in here for some reason
+breed_mod24_ran <- glmer(success24 ~ Comp1 + Gr10precip + laying_centre +  Green_centre + sub_pop + (1|ID),
                    data = breed_sc,
                    family = binomial(link = "logit"),
                    control=glmerControl(optimizer="bobyqa",
-                                        optCtrl=list(maxfun=2e10)))
+                                        optCtrl=list(maxfun=2e5)))
 
 ## chekc AICc of models
 AICc(breed_mod24); AICc(breed_mod24_ran)
-summary(breed_sc)
+
 ## get paramater estimates
-summary(breed_mod24)
+summary(breed_mod24_ran)
 drop1(breed_mod24_ran, test = "Chi") #liklihood ratio test
 
 

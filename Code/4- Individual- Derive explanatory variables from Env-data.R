@@ -25,29 +25,19 @@ pacman::p_load(tidyverse, data.table, lubridate, zoo)
 ## 7. loop to calculate average Env variables over custom window lengths
 
 
-## NEED to add in the new env data as for some reason my old Env data does not have all of the tag_years that i need!!!
-
-
-
 
 #-------------------------------------------------------------#
 #### 1. Read in tracking data sets annotated with Env data ####
 #-------------------------------------------------------------#
 
 ## MODIS 500m daily Terra NDSI dataset
-NDVI <- readRDS("Env data/NDVI.RDS")
+NDVI <- readRDS("Tracking data/Env/NDVI_streamlined.RDS")
 
 ## MODIS 500m 16day Terra NDVI dataset
-Snow <- readRDS("Env data/Snow_cover.RDS")
+Snow <- readRDS("Tracking data/Env/Snow_streamlined.RDS")
 
 ## NCEP precip and temp annotation, will have to be handled seperately
-GWF_clim <- fread("Env data/NCEP_precip_temp_anno_EXTRABITS.csv")
-
-## Rename env data columns
-setnames(NDVI, old=c("MODIS Land Vegetation Indices 500m 16d Terra NDVI"), new=c("NDVI")) # NDVI
-setnames(Snow, old = c("MODIS Snow 500m Daily Terra NDSI Snow Cover"), new = c("snow")) # snow cover
-
-
+GWF_clim <- readRDS("Tracking data/Env/Temp_Precip_streamlined.RDS")
 
 
 
@@ -59,49 +49,31 @@ setnames(Snow, old = c("MODIS Snow 500m Daily Terra NDSI Snow Cover"), new = c("
 ## Format NDVI and Snow cover data set
 
 ## Combine the NDVI and snow cover data sets
-NDVI$Snow_cover <- Snow$snow
+NDVI$Snow_cover <- Snow$Snow
 Env <- NDVI
 
-## set timestamp as date time object
-Env$timestamp <- ymd_hms(Env$timestamp)
+## format NDVI and snow cover data set
+Env <- Env %>% 
+       mutate(timestamp = ymd_hms(timestamp),
+              Tag_year = paste0(`tag-local-identifier`, "_", year(timestamp)),
+              Snow_cover = ifelse(Snow_cover == "NaN", NA, Snow_cover),
+              NDVI = ifelse(NDVI == "NaN", NA, NDVI),
+              Snow_cover = as.numeric(Snow_cover),
+              NDVI = as.numeric(NDVI))
 
-## create tag_year column
-Env$Tag_year <- paste0(Env$`tag-local-identifier`, "_", year(Env$timestamp))
-
-##changing NaN to NA in Env data coloumns
-Env$Snow_cover <- ifelse(Env$Snow_cover == "NaN", NA, Env$Snow_cover)
-Env$NDVI <- ifelse(Env$NDVI == "NaN", NA, Env$NDVI)
-
-## set env data columns to numeric
-Env$Snow_cover <- as.numeric(Env$Snow_cover); Env$NDVI <- as.numeric(Env$NDVI)
-
-
-
-## Format temp and precip data set
-GWF_clim$timestamp <- as.character(ymd_hms(GWF_clim$timestamp))
-
-## convert temperatures in Kelvin to degrees centigrade
-GWF_clim$temp_2mC <- GWF_clim$temp_2m - 273.15
-
-## convert precip from m to mm
-GWF_clim$precip_ratemm <- GWF_clim$precip_rate*1000
-
-## Create a absolute value of precip colum as currently it is a rate
-## first create a time dif column, number of minutes between current fix and the next
-GWF_clim$timedif <- as.numeric(as.character(difftime(lead(GWF_clim$timestamp), GWF_clim$timestamp, unit = "secs")))
-
-GWF_clim$timedif <- ifelse(!GWF_clim$Tag_year == lead(GWF_clim$Tag_year) | !GWF_clim$Tag_year == lag(GWF_clim$Tag_year),
-                      NA, GWF_clim$timedif)
-GWF_clim$precip_tot <- GWF_clim$precip_ratemm*GWF_clim$timedif
-## units of precip_tot are now g/m^2
-
-unique(GWF_clim$Tag_year)
+## format precip and temp data set
+GWF_clim <- GWF_clim %>% 
+            mutate(timestamp = ymd_hms(timestamp),
+                   Tag_year = paste0(`tag-local-identifier`, "_", year(timestamp)),
+                   temp_2mC = Temp - 273.15,
+                   precip_tot = Precip*1000) %>% 
+            select(!c(Temp, Precip))
 
 
 
-#------------------------------------------------------------------#
-#### 3. Import migratory phenology data then filter Greenland period
-#------------------------------------------------------------------#
+#-----------------------------------------------------------------------#
+#### 3. Import migratory phenology data then filter Greenland period ####
+#-----------------------------------------------------------------------#
 
 ## read in phenology data
 Phenology <- fread("Outputs/Full_phenology_upto2021.csv")
@@ -112,42 +84,59 @@ Phenology$Tag_year <- paste(Phenology$ID, Phenology$year, sep = "_")
 ## set phenology columns to lubridate timestamps and give 1 day buffer before departure and after arrival date
 Phenology$Green_dep2 <- (ymd_hms(paste0(Phenology$Green_dep, " 00:00:00"))) - 86400
 Phenology$Green_arrive2 <- (ymd_hms(paste0(Phenology$Green_arrive, " 00:00:00"))) + 86400
+Phenology <- Phenology %>% select(Tag_year, Green_dep2, Green_arrive2)
 
+
+
+## Do this for the NDVI and snow cover data set
 ## now join the two data sets
-Env2 <- inner_join(Env, Phenology, by = "Tag_year")
+GWF_Gr <- inner_join(Env, Phenology, by = "Tag_year")
 
 ## filter out the period in Greenland
-GWF_Gr <- Env2 %>%  filter(timestamp > Green_arrive2 & timestamp < Green_dep2) 
+GWF_Gr <- GWF_Gr %>%  filter(timestamp > Green_arrive2 & timestamp < Green_dep2) 
 
 ## check env-data columns
 summary(GWF_Gr$Snow_cover)
 summary(GWF_Gr$NDVI)
 
 
-#### filter env data to just tag_years used in analysis ####
+
+## Do this for the Temp and Precip data set
+## now join the two data sets
+GWF_clim <- inner_join(GWF_clim, Phenology, by = "Tag_year")
+
+## filter out the period in Greenland
+GWF_clim <- GWF_clim %>%  filter(timestamp > Green_arrive2 & timestamp < Green_dep2) 
+
+## check env-data columns
+summary(GWF_clim$temp_2mC)
+summary(GWF_clim$precip_tot)
+
+
+
+
+#### filter env data to just tag_years used in analysis
 
 ## Read in the incubation data set
-Inc <- read.csv("Outputs/Incubation_attempt_lengths_new.csv") # GPS+Acc tags
+Inc <- fread("Outputs/Incubation_attempt_lengths_new.csv") # GPS+Acc tags
 
-# Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
-# Inc_gps$X <- NULL
-# ## bind the two together
-# Inc <- rbind(Inc, Inc_gps)
-
-## Join to env data sets
-Inc <- subset(Inc, select = c(Tag_year, length))
-GWF_GR <- inner_join(GWF_Gr, Inc, by = "Tag_year")
+## Filter from NDVI and snow cover data set
+GWF_GR <- filter(GWF_Gr, Tag_year %in% Inc$Tag_year)
 stopifnot( length(table(GWF_GR$Tag_year)) == length(table(Inc$Tag_year)) ) # check join worked properly
 length(unique(GWF_GR$Tag_year))
-## lost WHIT01_2018 but had very little data anyway so may as well get rid of
+
+## Filter from Temp and precip data set
+GWF_clim <- filter(GWF_clim, Tag_year %in% Inc$Tag_year)
+stopifnot( length(table(GWF_clim$Tag_year)) == length(table(Inc$Tag_year)) ) # check join worked properly
+length(unique(GWF_clim$Tag_year))
 
 
 
 
 
-########
-## 4. ##
-######## Resample the tracking data
+#-------------------------------------#
+#### 4. Resample the tracking data ####
+#-------------------------------------#
 
 ## Resample  tracking data so each Tag_year has a similar number of daily fixes to caculate average Env conditions
 trackSubSampyear <- function(TD, dt=1, unit='days', resamp_times = resamp_times){
@@ -203,13 +192,12 @@ trackSubSampyear <- function(TD, dt=1, unit='days', resamp_times = resamp_times)
 GWF_GR$timestamp <- as.POSIXct(GWF_GR$timestamp, format= "%Y-%m-%d %H:%M:%OS", tz= "GMT")
 GWF_GR$year <- year(GWF_GR$timestamp)
 GWF_GR$date <- as.Date(GWF_GR$timestamp)
-GWF_GR$tag_date <- paste0(GWF_GR$`individual-local-identifier`, "_", GWF_GR$date)
+GWF_GR$tag_date <- paste0(GWF_GR$`tag-local-identifier`, "_", GWF_GR$date)
 
 
-## Filter out rows past the end of August, remove September and October rows and those not contiaing precip or temp
+## Filter out rows past the end of August, remove September and October rows
 GWF_GR$month <- month(GWF_GR$timestamp)
 GWF_GR <- filter(GWF_GR, month < 9)
-table(GWF_GR$month) # shouldn't have month values greater than 9
 
 ## Remove rows with missing NDVI values
 GWF_GRndvi <- filter(GWF_GR, is.na(NDVI) == F)
@@ -230,6 +218,14 @@ summary(Mig_thinsnow$Snow_cover)
 length(unique(GWF_GR$tag_date)); length(unique(Mig_thinsnow$tag_date))
 
 
+
+
+## re-sampling for temp and precip data
+GWF_clim$date <- as.Date(GWF_clim$timestamp)
+GWF_climThin <- trackSubSampyear(GWF_clim, resamp_times = c("08:00:00", "12:00:00", "16:00:00"))
+
+
+
 ## NOTES on the resampling process
 ## 1. All fixes were annotated with weather variables using the Movebank env data system
 ## 2. NA values were removed from each varables before resampling
@@ -240,29 +236,23 @@ length(unique(GWF_GR$tag_date)); length(unique(Mig_thinsnow$tag_date))
 
 
 
+#---------------------------------------------------------------------------------#
+#### 5. Calculate rolling averages of temp and precip over the breeding season ####
+#---------------------------------------------------------------------------------#
 
-########
-## 5. ##
-######## Calculate rolling averages of temp and precip over the breeding season
-
-## Calculate Rolling avergaes for Temperature and precipitation throughout the breeding season
+## Calculate Rolling averages for Temperature and precipitation throughout the breeding season
 ## Not all days have all three fixes but will just create an average value for each day first
 
-## IMPROVEMENTS:
-## Rolling averges are from daily averages so may want to create them with the RAW data instead using a loop, like in section 6
+## summarize daily weather per tag day
+GWF_climThin <- GWF_climThin %>% 
+                 rename(ID = `tag-local-identifier`) %>% 
+                 mutate(tag_date = paste0(ID, "_", date),
+                        year = year(timestamp))
 
-## set timestamp as lubridate object
-GWF_clim$timestamp <- ymd_hms(GWF_clim$timestamp)
-
-## summarise daily weather per tag day
-Daily_weather <- GWF_clim %>% group_by(tag_date) %>% summarise(avg_temp = mean(x= temp_2mC, na.rm= T), 
-                                                               sum_precip = sum(precip_tot, na.rm= T),
-                                                               ID= head(ID, n= 1L))
-
-##changing NaN to NA in Env data coloumns
-Daily_weather$avg_temp <- ifelse(Daily_weather$avg_temp == "NaN", NA, Daily_weather$avg_temp)
-Daily_weather$sum_precip <- ifelse(Daily_weather$sum_precip == "NaN", NA, Daily_weather$sum_precip)
-
+Daily_weather <- GWF_climThin %>%
+                 group_by(ID, tag_date, year) %>% 
+                 summarise(avg_temp = mean(x= temp_2mC, na.rm= T), 
+                          sum_precip = sum(precip_tot, na.rm= T))
 
 ## summarise rolling weather averages per tag day
 ## fucntion to use in nested data frame for rolling mean and rolling sum
@@ -271,7 +261,7 @@ roll_sum_precip <- function(x, width) {rollapply(x$sum_precip, width = width, FU
 
 ## applying rolling mean/sum on nested data set with varying window widths
 Rolling_weather <- Daily_weather %>% 
-                   group_by(ID) %>%  
+                   group_by(ID, year) %>%  
                    nest() %>% 
                    mutate(avg_temp2 = purrr::map(data, roll_mean_temp, width = 2), sum_precip2 = purrr::map(data, roll_sum_precip, width = 2),
                           avg_temp3 = purrr::map(data, roll_mean_temp, width = 3), sum_precip3 = purrr::map(data, roll_sum_precip, width = 3),
@@ -280,8 +270,13 @@ Rolling_weather <- Daily_weather %>%
                           avg_temp10 = purrr::map(data, roll_mean_temp, width = 10), sum_precip10 = purrr::map(data, roll_sum_precip, width = 10)) %>% 
                    unnest(cols = c(data, avg_temp2, sum_precip2, avg_temp3, sum_precip3, avg_temp4, sum_precip4, avg_temp5, sum_precip5, avg_temp10, sum_precip10))
 
+## chekc the number of tag_years
+Rolling_weather$tag_year <- paste0(Rolling_weather$ID, "_", Rolling_weather$year)
+length(unique(Rolling_weather$tag_year))
+
 ## write out this file for use in other scripts
 write_csv(Rolling_weather, file = "Outputs/Rolling_Env_data_per_day_breeding_season_evenfixes.csv")
+
 
 
 
@@ -291,18 +286,11 @@ write_csv(Rolling_weather, file = "Outputs/Rolling_Env_data_per_day_breeding_sea
 
 ## read in Incubation attempts for GPS only and GPS + Acc tags
 Inc <- read.csv("Outputs/Incubation_attempt_lengths_new.csv") # GPS+Acc tags
+
 ## set as date objects
 Inc$attempt_end <- as.Date(Inc$attempt_end, format = "%Y-%m-%d")
 Inc$Green_arrive <- as.Date(Inc$Green_arrive, format = "%Y-%m-%d")
 Inc$attempt_start <- as.Date(Inc$attempt_start, format = "%Y-%m-%d")
-
-## **DELETE**
-# Inc_gps <- read.csv("Outputs/Incubation_attempt_lengths_GPSonly.csv") # GPS only tags
-# Inc_gps$X <- NULL
-# 
-# ## bind the two together
-# Inc <- rbind(Inc, Inc_gps)
-## **DELETE**
 
 ## create some extra columns for periods to calculate averge env conditions over
 Inc$Green_arrive10 <- ifelse(is.na(Inc$Green_arrive) == F, as.Date(Inc$Green_arrive) + 10, NA)
@@ -326,14 +314,13 @@ Inc$Green_arrive30 <- as.Date(Inc$Green_arrive30, origin = "1970-01-01")
 ##---- Average TEMP and PRECIP ----##
 
 ## Create weights column so summing of temp isnt effected by days with only 1 or two fixes
-daily_fixestemp <- as.data.frame(table(GWF_clim$tag_date))
+daily_fixestemp <- as.data.frame(table(GWF_climThin$tag_date))
 colnames(daily_fixestemp)[1] <- "tag_date"
-GWF_clim <- full_join(GWF_clim, daily_fixestemp, by = "tag_date")
-GWF_clim$weight <- 3/GWF_clim$Freq
+GWF_climThin <- full_join(GWF_climThin, daily_fixestemp, by = "tag_date")
+GWF_climThin$weight <- 3/GWF_climThin$Freq
 
 ## parse timestamp with lubridate
-GWF_clim$timestamp <- ymd_hms(GWF_clim$timestamp)
-#GWF_Gr$timestamp <- as.POSIXct(GWF_Gr$timestamp, format= "%Y-%m-%d %H:%M:%S", tz= "GMT")
+GWF_climThin$timestamp <- ymd_hms(GWF_climThin$timestamp)
 
 ## create empty data set
 Env_clim <- subset(Inc, select= c("Tag_year"))
@@ -354,10 +341,10 @@ stopifnot(length(tagyears) == nrow(Env_clim))
 for(i in 1:length(tagyears)) {
   
   ## filter out the data and phenological data for the current tag_year
-  sub_data = filter(GWF_clim, Tag_year == paste(tagyears[i]))
+  sub_data = filter(GWF_climThin, Tag_year == paste(tagyears[i]))
   Dates = filter(Inc, Tag_year == paste(tagyears[i]))
   
-  message(i, " out of ", length(tagyears), " tags")
+  svMisc::progress(i, length(tagyears))
   
      ## calculate mean env varibales over various window lengths in relation to Greenland arrival
   
@@ -407,7 +394,7 @@ for(i in 1:length(tagyears)) {
   sub_data = filter(Mig_thindvi, Tag_year == paste(tagyears[i]))
   Dates = filter(Inc, Tag_year == paste(tagyears[i]))
   
-  message(i, " out of ", length(tagyears), " tags")
+  svMisc::progress(i, length(tagyears))
   
   ## calculate mean env varibales over various window lengths in relation to Greenland arrival
   
@@ -428,15 +415,23 @@ rm(Dates, sub_data, Gr10, Gr20)
 
 ##---- Average SNOW COVER ----##
 
-## Create weights column so summing of precip isnt effected by days with only 1 or two fixes
-daily_fixessnow <- as.data.frame(table(Mig_thinsnow$tag_date))
-colnames(daily_fixessnow)[1] <- "tag_date"
+## Calculate weights slightly differently, because we only had 1 snow cover value per day the weight is jut the day difference
+## Occasionally there was a day with not snow cover values so the day differences can be 2 or 3
+daily_fixessnow <- as.data.frame(table(Mig_thinsnow$tag_date)) %>% 
+                   mutate(tag_date = Var1) %>% 
+                   separate(Var1, c("ID","date"), "_") %>% 
+                   mutate(year = year(ymd(date))) %>% 
+                   group_by(ID, year) %>% 
+                   mutate(DayDiff = as.numeric(difftime(lead(date), date, units = "days"))) %>% 
+                   mutate(DayDiff = ifelse(is.na(DayDiff)==T, 1, DayDiff)) %>% 
+                   ungroup() %>% 
+                   select(tag_date, DayDiff)
+
 Mig_thinsnow <- full_join(Mig_thinsnow, daily_fixessnow, by = "tag_date")
-Mig_thinsnow$weight <- 3/Mig_thinsnow$Freq
+Mig_thinsnow$weight <- Mig_thinsnow$DayDiff
 
 ## parse timestamp with lubridate
 Mig_thinsnow$timestamp <- ymd_hms(Mig_thinsnow$timestamp)
-#GWF_Gr$timestamp <- as.POSIXct(GWF_Gr$timestamp, format= "%Y-%m-%d %H:%M:%S", tz= "GMT")
 
 ## create empty data set
 Env_snow <- subset(Inc, select= c("Tag_year"))
@@ -457,7 +452,7 @@ for(i in 1:length(tagyears)) {
   sub_data = filter(Mig_thinsnow, Tag_year == paste(tagyears[i]))
   Dates = filter(Inc, Tag_year == paste(tagyears[i]))
   
-  message(i, " out of ", length(tagyears), " tags")
+  svMisc::progress(i, length(tagyears))
   
   ## calculate mean env varibales over various window lengths in relation to Greenland arrival
   
