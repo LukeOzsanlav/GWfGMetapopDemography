@@ -376,7 +376,7 @@ ms2_sub6
 
 ## OBTAIN 95% CIs FOR TOP MODEL SET 
 
-topmod1  <-  coxme(Surv ~ Gr10precip + cutoff + Green_centre + (1|ID), data= Exp_ph2_sc)
+topmod1  <-  coxme(Surv ~ sum_precip + sub_pop + Green_centre + (1|ID), data= Exp_ph2_sc)
 summary(topmod1);confint(topmod1)
 
 topmod2  <-  coxme(Surv ~ cutoff + Green_centre + (1|ID), data= Exp_ph2_sc)
@@ -416,7 +416,7 @@ survminer::ggadjustedcurves(topmod_simp, data = Exp_ph2_sc, variable = "cutoff",
 ## This allows you to add 95% CIs but isn't conditional on other variables in the model
 
 ## first create a survfit object with sub-popualtion as the only explanatory
-Pop_fit <- survfit(Surv ~ cutoff, data = Exp_ph2_sc)
+Pop_fit <- survfit(Surv ~ sub_pop, data = Exp_ph2_sc)
 
 ## Plot the two survival curves using the ggsurvplot function
 ggsurvplot(Pop_fit, data = Exp_ph2_sc, conf.int = TRUE, pval = FALSE,
