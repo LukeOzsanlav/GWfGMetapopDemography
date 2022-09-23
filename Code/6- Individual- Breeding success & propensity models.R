@@ -42,6 +42,11 @@ Inc_acc <- inner_join(Inc_ext, Window, by = "Tag_year")
 ## If i updated the env data then the data set would be larger
 Inc_acc <- Inc_acc %>%  drop_na(Gr10NDVI, Gr10Sn, Gr10temp)
 
+## drop the Ecotone tags
+Inc_acc <- Inc_acc %>% 
+           mutate(tagtype = substr(ID, 1, 1)) %>% 
+           filter(tagtype == 1)
+
 
 
 
@@ -215,6 +220,7 @@ AICc(breed_mod24); AICc(breed_mod24_ran)
 ## get paramater estimates
 summary(breed_mod24_ran)
 drop1(breed_mod24_ran, test = "Chi") #liklihood ratio test
+confint(breed_mod24_ran)
 
 
 ## check model assumptions with DHARMa

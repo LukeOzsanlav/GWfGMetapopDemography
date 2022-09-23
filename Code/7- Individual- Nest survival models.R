@@ -48,7 +48,11 @@ Inc_breeders <- Inc_ext
 ## add tag_date column with tag ID and incubation start date
 Inc_breeders$tag_date <- paste0(Inc_breeders$ID, "_", Inc_breeders$attempt_end)
 
-
+## filter out just the Ornitela data
+Inc_breeders <- Inc_breeders %>% 
+                mutate(tagtype = substr(ID, 1, 1)) %>% 
+                filter(tagtype == 1) %>% 
+                dplyr::select(-tagtype)
 
 
 #-------------------------------------#
@@ -275,23 +279,26 @@ sub_cor <- subset(Exp_ph2, select = c("laying_centre", "Green_centre", "staging_
                                       "Comp1", "Comp2", "breeding_lat", "Gr10precip"))
 co_matrix <- cor(sub_cor) ## NDVI windows starting from Greenland arrival and incubation end are correlated
 
+## Add on a sub-population variable
+Exp_ph2$sub_pop <- ifelse(Exp_ph2$RingLoc == "WEXF" | Exp_ph2$RingLoc == "SESK", "HVAN", "LOWLANDS")
+Exp_ph2$sub_pop <- as.factor(Exp_ph2$sub_pop)
+
 ## check for correlation between sub-population and continuous predictors
-biserial.cor(Exp_ph2$Comp1, Exp_ph2$cutoff)
-biserial.cor(Exp_ph2$Gr10precip, Exp_ph2$cutoff)
-biserial.cor(Exp_ph2$laying_centre, Exp_ph2$cutoff)
-biserial.cor(Exp_ph2$Green_centre, Exp_ph2$cutoff)
-biserial.cor(Exp_ph2$avg_temp, Exp_ph2$cutoff)
+biserial.cor(Exp_ph2$Comp1, Exp_ph2$sub_pop)
+biserial.cor(Exp_ph2$Gr10precip, Exp_ph2$sub_pop)
+biserial.cor(Exp_ph2$laying_centre, Exp_ph2$sub_pop)
+biserial.cor(Exp_ph2$Green_centre, Exp_ph2$sub_pop)
+biserial.cor(Exp_ph2$avg_temp, Exp_ph2$sub_pop)
+biserial.cor(Exp_ph2$sum_precip, Exp_ph2$sub_pop)
+
+ggplot() + geom_boxplot(data = Exp_ph2, aes(x= sub_pop, y =sum_precip)) + theme_bw()
+hist(Exp_ph2$sum_precip)
 
 
 
 #----------------------#
 #### 5.2 Run models ####
 #----------------------#
-
-## Add on a sub-population variable
-Exp_ph2$sub_pop <- ifelse(Exp_ph2$RingLoc == "WEXF" | Exp_ph2$RingLoc == "SESK", "HVAN", "LOWLANDS")
-Exp_ph2$sub_pop <- as.factor(Exp_ph2$sub_pop)
-
 
 #### scale the explanatory
 Exp_ph2_sc <- Exp_ph2 %>% 
@@ -315,22 +322,21 @@ Exp_ph2_sc <- Exp_ph2 %>%
 
 
 #### Run models with varying  window length of time-dependent climatic variables 
-Exp_ph2_sc <- filter(Exp_ph2_sc, !year ==2021)
 Exp_ph2_sc$year <- as.character(Exp_ph2_sc$year)
 
 mod.null <-  coxme(Surv ~ (1|ID), data= Exp_ph2_sc)
 
 mod_roll_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip + avg_temp + laying_centre + Green_centre + year + (1|ID), 
                         data= Exp_ph2_sc)
-mod_roll_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip2  + avg_temp2 + laying_centre + Green_centre + (1|ID), 
+mod_roll_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip2 + avg_temp2 + laying_centre + Green_centre + year + (1|ID), 
                          data= Exp_ph2_sc)
-mod_roll_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip3  + avg_temp3 + laying_centre + Green_centre + (1|ID), 
+mod_roll_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip3 + avg_temp3 + laying_centre + Green_centre + year + (1|ID), 
                          data= Exp_ph2_sc)
-mod_roll_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip4  + avg_temp4 + laying_centre + Green_centre + (1|ID), 
+mod_roll_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip4 + avg_temp4 + laying_centre + Green_centre + year + (1|ID), 
                          data= Exp_ph2_sc)
-mod_roll_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip5  + avg_temp5 + laying_centre + + Green_centre + (1|ID), 
+mod_roll_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip5 + avg_temp5 + laying_centre + + Green_centre + year + (1|ID), 
                          data= Exp_ph2_sc)
-mod_roll_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip10  + avg_temp10 + laying_centre + Green_centre + (1|ID), 
+mod_roll_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sub_pop + sum_precip10 + avg_temp10 + laying_centre + Green_centre + year + (1|ID), 
                           data= Exp_ph2_sc)
 
 ## compare the different models with AICc
@@ -338,9 +344,14 @@ AICc(mod.null, mod_roll_ran, mod_roll_ran2, mod_roll_ran3, mod_roll_ran4, mod_ro
 
 ## get the summary from the best model
 summary(mod_roll_ran)
+confint(mod_roll_ran)
 
+## try and visualize why we might be getting this precip effect
 # summary(Exp_ph2_sc$sum_precip)
 # ggplot(Exp_ph2_sc) + geom_point(aes(y=Tag_year, x= yday, colour = sum_precip)) + theme_bw() + scale_color_viridis_b()
+# hist(Exp_ph2$sum_precip)
+# Precip_check <- filter(Exp_ph2, sum_precip > 0.1)
+# biserial.cor(Precip_check$sum_precip, Precip_check$sub_pop)
 
 
 #------------------------#
@@ -376,20 +387,23 @@ ms2_sub6
 
 ## OBTAIN 95% CIs FOR TOP MODEL SET 
 
-topmod1  <-  coxme(Surv ~ sum_precip + sub_pop + Green_centre + (1|ID), data= Exp_ph2_sc)
+topmod1  <-  coxme(Surv ~ avg_temp + Green_centre + sum_precip + (1|ID), data= Exp_ph2_sc)
 summary(topmod1);confint(topmod1)
 
-topmod2  <-  coxme(Surv ~ cutoff + Green_centre + (1|ID), data= Exp_ph2_sc)
+topmod2  <-  coxme(Surv ~ Green_centre + sub_pop + sum_precip + (1|ID), data= Exp_ph2_sc)
 summary(topmod2);confint(topmod2)
 
-topmod3 <-  coxme(Surv ~ cutoff + (1|ID), data= Exp_ph2_sc)
+topmod3 <-  coxme(Surv ~ Comp1 + Green_centre + sum_precip + (1|ID), data= Exp_ph2_sc)
 summary(topmod3);confint(topmod3)
 
-topmod4 <-  coxme(Surv ~ Green_centre + Comp1 + avg_temp2 + (1|ID), data= Exp_ph2_sc)
+topmod4 <-  coxme(Surv ~ sub_pop + sum_precip + + (1|ID), data= Exp_ph2_sc)
 summary(topmod4);confint(topmod4)
 
-topmod5 <-  coxme(Surv ~ Green_centre + Comp1 + (1|ID), data= Exp_ph2_sc)
+topmod5 <-  coxme(Surv ~ Green_centre + sum_precip + (1|ID), data= Exp_ph2_sc)
 summary(topmod5);confint(topmod5)
+
+topmod6  <-  coxme(Surv ~ avg_temp + sum_precip + (1|ID), data= Exp_ph2_sc)
+summary(topmod6);confint(topmod6)
 
 
 
@@ -428,3 +442,224 @@ ggsurvplot(Pop_fit, data = Exp_ph2_sc, conf.int = TRUE, pval = FALSE,
 ## Save a plot
 ggsave("Paper Plots/Figure 4- Kaplan Meir plot.png", 
        width = 22, height = 18, units = "cm")
+
+
+
+
+
+
+
+
+
+#-------------------------------------#
+#### 7. Run populations separately ####
+#-------------------------------------#
+
+#------------------------------------------#
+#### 7.1 Filter out the two populations ####
+#------------------------------------------#
+
+## filter the data into the two sub-populations
+Exp_ph2_Hvan <- filter(Exp_ph2_sc, sub_pop == "HVAN")
+Exp_ph2_Low <- filter(Exp_ph2_sc, sub_pop == "LOWLANDS")
+
+# how manny bird years in each analysis
+length(unique(Exp_ph2_Hvan$Tag_year))
+length(unique(Exp_ph2_Low$Tag_year))
+
+## average temp during incubation
+
+
+
+
+#---------------------------#
+#### 7.2 Run Wexf models ####
+#---------------------------#
+
+
+mod.nullWexf <-  coxme(Surv ~ (1|ID), data= Exp_ph2_Hvan)
+
+mod_Wexf_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip + avg_temp + laying_centre + Green_centre + year + (1|ID), 
+                        data= Exp_ph2_Hvan)
+mod_Wexf_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip2 + avg_temp2 + laying_centre + Green_centre + year + (1|ID), 
+                         data= Exp_ph2_Hvan)
+mod_Wexf_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip3 + avg_temp3 + laying_centre + Green_centre + year + (1|ID), 
+                         data= Exp_ph2_Hvan)
+mod_Wexf_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip4 + avg_temp4 + laying_centre + Green_centre + year + (1|ID), 
+                         data= Exp_ph2_Hvan)
+mod_Wexf_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip5 + avg_temp5 + laying_centre + Green_centre + year + (1|ID), 
+                         data= Exp_ph2_Hvan)
+mod_Wexf_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip10 + avg_temp10 + laying_centre + Green_centre + year + (1|ID), 
+                          data= Exp_ph2_Hvan)
+
+## compare the different models with AICc
+AICc(mod.nullWexf, mod_Wexf_ran, mod_Wexf_ran2, mod_Wexf_ran3, mod_Wexf_ran4, mod_Wexf_ran5, mod_Wexf_ran10)
+
+## get the summary from the best model
+summary(mod_Wexf_ran4)
+confint(mod_Wexf_ran4)
+
+
+#-----------------------------#
+#### 7.3 Wexf Model Checks ####
+#-----------------------------#
+
+## check residuals vs predicted values
+plot(predict(mod_Wexf_ran), resid(mod_Wexf_ran, type = "deviance"))
+
+## can get the following model checks to work if treat individual ID as a frailty term instead of a random effect
+mod_Wexf_check  <-  coxph(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip + avg_temp + laying_centre + Green_centre + year + frailty(ID), 
+                          data= Exp_ph2_Hvan)
+## check for proportionality, using Schoenfeld residuals for each variable
+ggcoxzph(cox.zph(mod_Wexf_check)) #  For each covariate it produces plots with scaled Schoenfeld residuals against the time.
+
+
+
+#-------------------------------#
+#### 7.4 Wexf Model Plotting ####
+#-------------------------------#
+
+
+## get the estimates and confidence intervals from the models
+Ests <- data.frame(summary(mod_Wexf_ran4)$coefficients)
+Ests <- Ests %>% cbind(confint(mod_Wexf_ran4)) %>% dplyr::rename(Estimate = `summary.mod_Wexf_ran4..coefficients`)
+rownames(Ests) <- c("ArrPrecip", "Clim", "Precip(t)", "Temp(t)",
+                    "Inc", "Arrival", "year[2019]", "year[2020]", "year[2021]")
+
+## make a forest plot fo the model estimates
+Ests <- Ests %>% 
+        map_df(rev) %>% 
+        mutate(Param = rev(rownames(Ests)),
+               Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
+
+ggplot(Ests) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
+  geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
+  geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
+  theme_bw() +
+  ylab("") +
+  xlim(-5, 5) +
+  scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
+  theme(panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.title=element_text(size=16), 
+        legend.title=element_text(size=14),
+        axis.text=element_text(size=14), 
+        legend.text=element_text(size=12),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none")
+
+
+## save the plot as a png
+ggsave("Paper Plots/Figure x- Wexford nest survival forest plot.png",
+       width = 22, height = 20, units = "cm")
+
+
+
+
+
+
+
+
+#----------------------------#
+#### 7.5 Run Islay Models ####
+#----------------------------#
+
+mod.null <-  coxme(Surv ~ (1|ID), data= Exp_ph2_Low)
+
+mod_Islay_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip + avg_temp + laying_centre + Green_centre + year + (1|ID), 
+                        data= Exp_ph2_Low)
+mod_Islay_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip2 + avg_temp2 + laying_centre + Green_centre + year + (1|ID), 
+                         data= Exp_ph2_Low)
+mod_Islay_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip3 + avg_temp3 + laying_centre + Green_centre + year + (1|ID), 
+                         data= Exp_ph2_Low)
+mod_Islay_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip4 + avg_temp4 + laying_centre + Green_centre + year + (1|ID), 
+                         data= Exp_ph2_Low)
+mod_Islay_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip5 + avg_temp5 + laying_centre + + Green_centre + year + (1|ID), 
+                         data= Exp_ph2_Low)
+mod_Islay_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip10 + avg_temp10 + laying_centre + Green_centre + year + (1|ID), 
+                          data= Exp_ph2_Low)
+
+## compare the different models with AICc
+AICc(mod.null, mod_Islay_ran, mod_Islay_ran2, mod_Islay_ran3, mod_Islay_ran4, mod_Islay_ran5, mod_Islay_ran10)
+
+## get the summary from the best model
+summary(mod_Islay_ran)
+confint(mod_Islay_ran)
+
+
+#------------------------------#
+#### 7.6 Islay Model Checks ####
+#------------------------------#
+
+## check residuals vs predicted values
+plot(predict(mod_Islay_ran), resid(mod_Islay_ran, type = "deviance"))
+
+## can get the following model checks to work if treat individual ID as a frailty term instead of a random effect
+mod_Islay_check  <-  coxph(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip + avg_temp + laying_centre + Green_centre + year + frailty(ID), 
+                          data= Exp_ph2_Low)
+## check for proportionality, using Schoenfeld residuals for each variable
+ggcoxzph(cox.zph(mod_Islay_check)) #  For each covariate it produces plots with scaled Schoenfeld residuals against the time.
+
+
+
+#--------------------------------#
+#### 7.7 Islay Model Plotting ####
+#--------------------------------#
+
+
+## get the estimates and confidence intervals from the models
+Ests2 <- data.frame(summary(mod_Islay_ran)$coefficients)
+Ests2 <- Ests2 %>% cbind(confint(mod_Islay_ran)) %>% dplyr::rename(Estimate = `summary.mod_Islay_ran..coefficients`)
+rownames(Ests2) <- c("ArrPrecip", "Clim", "Precip(t)", "Temp(t)",
+                    "Inc", "Arrival", "year[2020]", "year[2021]")
+
+## make a forest plot fo the model estimates
+Ests2 <- Ests2 %>% 
+  map_df(rev) %>% 
+  mutate(Param = rev(rownames(Ests2)),
+         Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
+
+ggplot(Ests2) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
+  geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
+  geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
+  theme_bw() +
+  ylab("") +
+  xlim(-2.5, 2.5) +
+  scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
+  theme(panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.title=element_text(size=16), 
+        legend.title=element_text(size=14),
+        axis.text=element_text(size=14), 
+        legend.text=element_text(size=12),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none")
+
+
+## save the plot as a png
+ggsave("Paper Plots/Figure x- Islay nest survival forest plot.png",
+       width = 22, height = 20, units = "cm")
+
+
+
+
+
+
+#-------------------------------------#
+#### 7.8  Model Sub-pop difference ####
+#-------------------------------------#
+
+
+## Run model with ust sub-populaiton in
+mod_roll_ran  <-  coxme(Surv ~ sub_pop + year + (1|ID), 
+                        data= Exp_ph2_sc)
+
+## create summary of model and CIs
+summary(mod_roll_ran)
+confint(mod_roll_ran)
+
+

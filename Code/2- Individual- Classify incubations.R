@@ -245,7 +245,7 @@ ODBASum <- ODBA %>%
             summarise(avg_odba = mean(ODBA, na.rm=T))
   
 ## filtering out tags that don't have data for the full breeding season 
-min_days <- 30 # set minimum number of days
+min_days <- 40 # set minimum number of days
 ODBASum <- as.data.frame(table(ODBASum$tag_year)) %>% 
            filter(Freq > min_days) %>% 
            rename(tag_year = Var1) %>% 
@@ -327,7 +327,29 @@ glimpse(GPSSum)
 
 ## join both biologging summaries together
 Inc <- full_join(ODBASum, GPSSum, by = c("device_id", "tag_year", "Date"))
-  
+
+## Some tags with only GPS data and no ODBA data have made their way into the data set
+## remove tag_years where they do not have enough ACC data
+ODBADays <- Inc %>% 
+            mutate(AccData = ifelse(is.na(avg_odba)==F, 1, 0)) %>% 
+            group_by(tag_year) %>% 
+            summarise(AccDays = sum(AccData)) %>% 
+            filter(AccDays > 40)
+
+## filter the data set based off of the rule above
+Inc <- Inc %>% filter(tag_year %in% unique(ODBADays$tag_year))
+
+
+## Some tags wcollected Acc data but GPS data was not collected simultaneously
+## remove tag_years where they do not have enough ACC data
+GPSDays <- Inc %>% 
+             mutate(GPSData = ifelse(is.na(ddist)==F, 1, 0)) %>% 
+             group_by(tag_year) %>% 
+             summarise(GPSDays = sum(GPSData)) %>% 
+             filter(GPSDays > 80)
+
+## filter the data set based off of the rule above
+Inc <- Inc %>% filter(tag_year %in% unique(GPSDays$tag_year))
   
 
 
@@ -345,21 +367,19 @@ Inc <- full_join(ODBASum, GPSSum, by = c("device_id", "tag_year", "Date"))
 ## define how many tag years I have before the join
 NoIncs <- length(unique(Inc$tag_year))
 
+## Join incubation data to tag info
 Inc <- Inc %>% mutate(device_id = as.character(device_id))
-Inc <- inner_join(Inc, tag_info, by = "device_id") %>% drop_na(avg_odba)
-
-## check i didn't lose any tag years during the join
-stopifnot(NoIncs== length(unique(Inc$tag_year)))
+Inc <- inner_join(Inc, tag_info, by = "device_id")
 
 
 
 ## Filter out birds that were observed to have breed successfully
 Breeders <- Inc %>%
             mutate(year = year(ymd(Date))) %>% 
-            filter((X2017.Gos %in% c(1:8) & year == 2017) | 
+            filter(((X2017.Gos %in% c(1:8) & year == 2017) | 
                    (X2018.Gos %in% c(1:8) & year == 2018) |
                    (X2019.Gos %in% c(1:8) & year == 2019) |
-                   (X2020.Gos %in% c(1:8) & year == 2020) &
+                   (X2020.Gos %in% c(1:8) & year == 2020)) &
                     Sex == "F" & Age == "A")
 
 
@@ -396,6 +416,11 @@ ODBA_plot3 <- function(h){
 nsd_plot3 <- function(h){
   ggplot(h, aes(x = Date, y = log(nsd_), col = Incubating.cert2)) + geom_point() +
     facet_wrap(~tag_year, scales = "free_x") + theme(legend.position = "none")
+}
+
+ODBA_plot_train <- function(h){
+  ggplot(h, aes(x = Date, y = avg_odba, col = status)) + geom_point() +
+    facet_wrap(~tag_year, scales = "free_x") + theme(legend.position = "none") + theme_light()
 }
 
 
@@ -449,7 +474,8 @@ for(j in 1:length(Tag_years)){
   
 }
 
-
+## plot the labeling
+# ODBA_plot_train(Breed_train2)
 
 
 #-------------------------------------------------#
@@ -528,31 +554,28 @@ if(qinc_acc < qnoinc_acc){
 }
 
 
-##combine nsd, ddist and ODBA labeling by adding
+##add together nsd, ddist and ODBA, if this equals 6 then label as definitely incubating
+## Note there will be come NAs in these columns so see the next step
 Females <- Females %>% 
            mutate(Incubating.comb = (Incubating1 + Incubating2 + Incubating.acc),
                   Incubating.cert = ifelse(Incubating.comb >= 6, 1, 0))
 
 
-## Data quality check ##
-## find birds which had missing data for too long a period during breedin
-NACheckFails <- Females %>% 
-                group_by(tag_year) %>% 
-                summarise(NAs = sum(ifelse(is.na(Incubating.comb)==T, 1, 0))) %>% 
-                filter(NAs > 30)
-NACheckFails$tag_year # lose two tag_years here
-
-## remove the tag_years failing the check
-Females <- Females %>% filter(!tag_year %in% NACheckFails$tag_year)
-
-## Now change any NAs in the incubation columns to zero
+## Now recalculate the Incubating.comb, changing NAs to zeros so that there are no NAs in Incubating.comb
+## Add another column that signifies that Incubating.comb was an NA previously
+## Finally get rid of any NAs in Incubating.cert as it will break the next step
+## These NAs appear if for a given dat there was no ACC or GPS data
 Females <- Females %>% 
-          mutate(Incubating.comb = ifelse(is.na(Incubating.comb) == T, 0, Incubating.comb),
-                 Incubating.cert = ifelse(is.na(Incubating.cert) == T, 0, Incubating.cert))
+          mutate(Incubating.miss = ifelse(is.na(Incubating.comb)==T, 1, 0),
+                 Incubating.acc = ifelse(is.na(Incubating.acc)==T, 0, Incubating.acc),
+                 Incubating1 = ifelse(is.na(Incubating1)==T, 0, Incubating1),
+                 Incubating2 = ifelse(is.na(Incubating2)==T, 0, Incubating2),
+                 Incubating.comb = (Incubating1 + Incubating2 + Incubating.acc),
+                 Incubating.cert = ifelse(is.na(Incubating.cert)==T, 0, Incubating.cert))
 
 ## plots to check labelling at this stage if needed
-#ODBA_plot2(Females)
-#nsd_plot2(Females)
+# ODBA_plot2(Females)
+# nsd_plot2(Females)
 
 
 
@@ -605,7 +628,7 @@ for (i in 1:length(tag_years)) {
     #message("missing")
     if(single_tag$Incubating.cert2[j] == 1){next}
     ## if acc runs out while incubating then use nsd and ddist to label the rest of incubation
-    single_tag$Incubating.cert2[j] <-  ifelse(is.na(single_tag$Incubating.cert[j]) == TRUE & single_tag$Incubating.cert[j-1] == 1 & 
+    single_tag$Incubating.cert2[j] <-  ifelse(single_tag$Incubating.miss[j] == 1 & single_tag$Incubating.cert[j-1] == 1 & 
                                                 single_tag$Incubating.comb[j] >= 2, 
                                               1, single_tag$Incubating.cert2[j])
   }
