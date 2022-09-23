@@ -8,7 +8,7 @@
  
 
 ## packages required
-pacman::p_load(tidyverse, data.table, survival, finalfit, 
+pacman::p_load(tidyverse, data.table, survival, finalfit, ggpubr,
                survminer, coxme, MuMIn, forestplot, dplyr, ltm)
 
 ## read in helper functions needed to format data for counting process coxph models
@@ -440,7 +440,7 @@ ggsurvplot(Pop_fit, data = Exp_ph2_sc, conf.int = TRUE, pval = FALSE,
            font.x = c(18, "black"), font.y = c(18, "black"), font.legend = c(14,"black"), xlim = c(144, 185))
 
 ## Save a plot
-ggsave("Paper Plots/Figure 4- Kaplan Meir plot.png", 
+ggsave("Paper Plots/Figure 5- Kaplan Meir plot.png", 
        width = 22, height = 18, units = "cm")
 
 
@@ -532,31 +532,24 @@ Ests <- Ests %>%
         mutate(Param = rev(rownames(Ests)),
                Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
 
-ggplot(Ests) +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
-  geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
-  geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
-  theme_bw() +
-  ylab("") +
-  xlim(-5, 5) +
-  scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
-  theme(panel.grid.minor.y = element_blank(),
-        panel.grid.major.x = element_blank(),
-        panel.grid.major.y = element_blank(),
-        axis.title=element_text(size=16), 
-        legend.title=element_text(size=14),
-        axis.text=element_text(size=14), 
-        legend.text=element_text(size=12),
-        panel.grid.minor.x = element_blank(),
-        legend.position = "none")
-
-
-## save the plot as a png
-ggsave("Paper Plots/Figure x- Wexford nest survival forest plot.png",
-       width = 22, height = 20, units = "cm")
-
-
-
+Wexf <- ggplot(Ests) +
+        geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
+        geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
+        geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
+        theme_bw() +
+        ylab("") +
+        xlim(-5, 5) +
+        scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
+        annotate(geom="text", x=4.4, y=9.2, label="Wexf",color="#D55E00", size =7) +
+        theme(panel.grid.minor.y = element_blank(),
+              panel.grid.major.x = element_blank(),
+              panel.grid.major.y = element_blank(),
+              axis.title=element_text(size=16), 
+              legend.title=element_text(size=14),
+              axis.text=element_text(size=14), 
+              legend.text=element_text(size=12),
+              panel.grid.minor.x = element_blank(),
+              legend.position = "none")
 
 
 
@@ -621,28 +614,30 @@ Ests2 <- Ests2 %>%
   mutate(Param = rev(rownames(Ests2)),
          Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
 
-ggplot(Ests2) +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
-  geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
-  geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
-  theme_bw() +
-  ylab("") +
-  xlim(-2.5, 2.5) +
-  scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
-  theme(panel.grid.minor.y = element_blank(),
-        panel.grid.major.x = element_blank(),
-        panel.grid.major.y = element_blank(),
-        axis.title=element_text(size=16), 
-        legend.title=element_text(size=14),
-        axis.text=element_text(size=14), 
-        legend.text=element_text(size=12),
-        panel.grid.minor.x = element_blank(),
-        legend.position = "none")
+Islay <- ggplot(Ests2) +
+          geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
+          geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
+          geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
+          theme_bw() +
+          ylab("") +
+          xlim(-2.5, 2.5) +
+          annotate(geom="text", x=2.25, y=8.2, label="Islay",color="#0072B2", size =7) +
+          scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
+          theme(panel.grid.minor.y = element_blank(),
+                panel.grid.major.x = element_blank(),
+                panel.grid.major.y = element_blank(),
+                axis.title=element_text(size=16), 
+                legend.title=element_text(size=14),
+                axis.text=element_text(size=14), 
+                legend.text=element_text(size=12),
+                panel.grid.minor.x = element_blank(),
+                legend.position = "none")
 
 
 ## save the plot as a png
-ggsave("Paper Plots/Figure x- Islay nest survival forest plot.png",
-       width = 22, height = 20, units = "cm")
+ggarrange(Wexf, Islay, ncol=1, nrow=2)
+ggsave("Paper Plots/Figure 4- Nest survival forest plot.png",
+       width = 22, height = 28, units = "cm")
 
 
 

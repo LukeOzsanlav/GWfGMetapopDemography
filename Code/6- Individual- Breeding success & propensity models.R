@@ -7,7 +7,7 @@
 
 
 ## packages required
-pacman::p_load(tidyverse, data.table, lme4, DHARMa, MuMIn)
+pacman::p_load(tidyverse, data.table, lme4, DHARMa, MuMIn, glmmTMB)
 
 
 
@@ -119,15 +119,14 @@ defer_sc$sub_pop <- ifelse(defer_sc$Ringing.location == "WEXF" | defer_sc$Ringin
 
 
 ## run the binomial GLM
-def_model_ran <- glmer(attempt ~  Gr10precip + Comp1 + Green_centre + sub_pop + year + (1|ID),
+def_model_ran <- glmmTMB(attempt ~  Comp1 + Gr10precip+ Green_centre + sub_pop + year + (1|ID),
                  data = defer_sc,
-                 family = binomial(link = "logit"),
-                 control=glmerControl(optimizer="bobyqa",
-                                      optCtrl=list(maxfun=2e5)))
+                 family = binomial(link = "logit"))
 
 ## examine model
 summary(def_model_ran)
 drop1(def_model_ran, test = "Chi") # Liklihood ratio test, no terms significant
+confint(def_model_ran)
 
 
 ## test model assumptions using DHARMa
@@ -160,6 +159,53 @@ msdef <- MuMIn::dredge(def_model_ran, trace = 2)
 msdef_sub <- subset(msdef, !nested(.), recalc.weights=T)
 msdef_sub <- subset(msdef_sub, delta <= 6, recalc.weights=T)
 msdef_sub # only retained intercept only model
+
+
+
+#--------------------------------#
+#### 4.1 Plot model estimates ####
+#--------------------------------#
+
+
+## get the estimates and confidence intervals from the models
+Ests <- as.data.frame(confint(def_model_ran)) %>% 
+        slice(., 1:(n()-1))
+rownames(Ests) <- c("Intercept", "Clim", "ArrPrecip", "Arrival", "Pop", 
+                     "year[2019]", "year[2020]", "year[2021]")
+
+## make a forest plot fo the model estimates
+Ests <- Ests %>% 
+  map_df(rev) %>% 
+  mutate(Param = rev(rownames(Ests)),
+         Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
+
+Ests$Param <- factor(Ests$Param, levels = Ests$Param[order(1:9)])
+
+Def <- ggplot(Ests) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
+  geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
+  geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
+  theme_bw() +
+  ylab("") +
+  xlim(-10.2, 9) +
+  scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
+  theme(panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.title=element_text(size=16), 
+        legend.title=element_text(size=14),
+        axis.text=element_text(size=14), 
+        legend.text=element_text(size=12),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none")
+
+Def
+
+## save the plot as a png
+ggsave("Paper Plots/Supp Fig 3- Breeding Deferal forest plot.png",
+       width = 22, height = 20, units = "cm")
+
+
 
 
 
@@ -208,11 +254,9 @@ breed_mod24 <- glm(success24 ~ Comp1 + Gr10precip + laying_centre + Green_centre
                    family = binomial(link = "logit"))
 
 ## can't add year in here for some reason
-breed_mod24_ran <- glmer(success24 ~ Comp1 + Gr10precip + laying_centre +  Green_centre + sub_pop + (1|ID),
+breed_mod24_ran <- glmmTMB(success24 ~ Comp1 + Gr10precip + laying_centre +  Green_centre + sub_pop + year + (1|ID),
                    data = breed_sc,
-                   family = binomial(link = "logit"),
-                   control=glmerControl(optimizer="bobyqa",
-                                        optCtrl=list(maxfun=2e5)))
+                   family = binomial(link = "logit"))
 
 ## chekc AICc of models
 AICc(breed_mod24); AICc(breed_mod24_ran)
@@ -242,39 +286,52 @@ testResiduals(simulationOutput24) # not violated
 
 
 
-#-------------------------------------#
-#### 5.3 MuMIn for model selection ####
-#-------------------------------------#
 
-## change default "na.omit" to prevent models being fitted to different datasets
-options(na.action = "na.fail") 
-
-## create all candidate models using dredge, specify any dependencies (trace shows progress bar)
-ms2 <- MuMIn::dredge(breed_mod24_ran, trace = 2)
-
-## perform model averaging
-# select models within 5 AICc points of top model
-ms2_sub <- subset(ms2, !nested(.), recalc.weights=T)
-ms2_sub <- subset(ms2_sub, delta <= 6, recalc.weights=T)
-ms2_sub
+#--------------------------------#
+#### 5.3 Plot model estimates ####
+#--------------------------------#
 
 
+## get the estimates and confidence intervals from the models
+Ests2 <- as.data.frame(confint(breed_mod24_ran)) %>% 
+         slice(., 1:(n()-1))
+rownames(Ests2) <- c("Intercept", "Clim", "ArrPrecip", "Inc", "Arrival", "Pop", 
+                     "year[2019]", "year[2020]", "year[2021]")
 
-## run models that remained in the top models sets after model selection
-## The extract the 95% CIs for the parameter estimates
-mod1 <- glmer(success24 ~ sub_pop + (1|ID),
-              data = breed_sc,
-              family = binomial(link = "logit"),
-              control=glmerControl(optimizer="bobyqa",
-                                   optCtrl=list(maxfun=2e5)))
-confint(mod1)
-summary(mod1)
+## make a forest plot fo the model estimates
+Ests2 <- Ests2 %>% 
+  map_df(rev) %>% 
+  mutate(Param = rev(rownames(Ests2)),
+         Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
+
+Ests2$Param <- factor(Ests2$Param, levels = Ests2$Param[order(1:9)])
+
+Succ <- ggplot(Ests2) +
+          geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
+          geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
+          geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
+          theme_bw() +
+          ylab("") +
+          xlim(-4.1, 4) +
+          scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
+          theme(panel.grid.minor.y = element_blank(),
+                panel.grid.major.x = element_blank(),
+                panel.grid.major.y = element_blank(),
+                axis.title=element_text(size=16), 
+                legend.title=element_text(size=14),
+                axis.text=element_text(size=14), 
+                legend.text=element_text(size=12),
+                panel.grid.minor.x = element_blank(),
+                legend.position = "none")
+
+Succ
 
 
-mod2 <- glmer(success24 ~ Green_centre + (1|ID),
-              data = breed_sc,
-              family = binomial(link = "logit"),
-              control=glmerControl(optimizer="bobyqa",
-                                   optCtrl=list(maxfun=2e8)))
-confint(mod2)
-summary(mod2)
+## save the plot as a png
+ggsave("Paper Plots/Supp Fig 4- Breeding success forest plot.png",
+       width = 22, height = 20, units = "cm")
+
+
+
+
+

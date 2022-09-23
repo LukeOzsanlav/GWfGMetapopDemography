@@ -37,7 +37,7 @@ hatch <- laying + 25
 #------------------------------------------#
 
 ## Read in the climate data
-clim <- fread("Data/All_sampling_sites_annotated.csv")
+clim <- fread("Tracking data/All_sampling_sites_annotated.csv")
 
 ## shorten the column names
 colnames(clim)
@@ -236,7 +236,7 @@ ggplot(mapping=aes(x= year, y = Young, group = Ringing_loc, colour = Ringing_loc
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_blank())
 
-ggsave("Paper Plots/Figure 5- Temporal trends in producitvity.png",
+ggsave("Paper Plots/Figure 6- Temporal trends in producitvity.png",
        width = 25, height = 15, units = "cm")
 
 
@@ -373,7 +373,7 @@ I2 <- ggplot(mapping=aes(x= All_precip, y = Young, group = Trend, colour = Trend
 ## now arrange both of the plots onto a single plot
 ggarrange(I1, I2, common.legend = T, nrow = 2)
 
-ggsave("Paper Plots//Figure 6- Islay Freezedays and precip days vs producitvity.png", 
+ggsave("Paper Plots/Figure 7- Islay Freezedays and precip days vs producitvity.png", 
        width = 25, height = 30, units = "cm")
 
 
@@ -397,7 +397,7 @@ WPost <- gls(Young ~ post_hatch_freeze*Trend + post_hatch_precip*Trend, correlat
 
 
 ## compare the AICc of all the models
-AICc(Null, WAll, WPre, WPost, WAllPost)
+AICc(Null, WAll, WPre, WPost)
 summary(WPre)
 
 ## get the p-values for the top model and plot the effects
@@ -513,7 +513,7 @@ W2<-ggplot(mapping=aes(x= pre_hatch_precip, y = Young, group = Trend, colour = T
 ## now arrange both of the plots onto a single plot
 ggarrange(W1, W2, common.legend = T, nrow = 2, legend = "top")
 
-ggsave("Paper Plots//Figure 7- Wexford Freezedays and Precip vs producitvity.png", 
+ggsave("Paper Plots/Figure 8- Wexford Freezedays and Precip vs producitvity.png", 
        width = 26, height = 30, units = "cm")
 
 
