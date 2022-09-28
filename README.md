@@ -13,7 +13,7 @@ This repository holds the code for a publication that is it be submitted to *Jou
 
 ## Data Availability
 
-Please note that the tracking data set used in the individual-level analysis has not been made available. However, the outputs of each script have been included so our analysis should be able to be mostly re-created. This means that scripts 1-4 will not run fully by downloading the repository. The population-level analysis should be able to be run in full. For this the environmental data has been provided but the specific locations of nest sites removed.
+Please note that the tracking data set used in the individual-level analysis has not been made available. However, the outputs of each script have been included so our analysis should be able to be mostly re-created. This means that `scripts 1-4` will not run fully by downloading the repository. The population-level analysis should be able to be run in full. For this the environmental data has been provided but the specific locations of nest sites removed.
 
 
 ## Manuscript Status
