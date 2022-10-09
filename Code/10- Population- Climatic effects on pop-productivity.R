@@ -5,7 +5,7 @@
 
 ## packages required
 pacman::p_load(ggplot2, data.table, lubridate, zoo, MuMIn, glmmTMB, 
-               nlme, lmtest, effects, performance, ggpubr)
+               nlme, lmtest, effects, performance, ggpubr, patchwork, png)
 library(dplyr)
 library(purrr)
 
@@ -236,8 +236,8 @@ ggplot(mapping=aes(x= year, y = Young, group = Ringing_loc, colour = Ringing_loc
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_blank())
 
-ggsave("Paper Plots/Figure 6- Temporal trends in producitvity.png",
-       width = 25, height = 15, units = "cm")
+# ggsave("Paper Plots/Figure 6- Temporal trends in producitvity.png",
+#        width = 25, height = 15, units = "cm")
 
 
 
@@ -311,12 +311,13 @@ setnames(fitITop,old = "fit", new = "Young")
 Clim_Islay2 <- Clim_Islay
 Clim_Islay2$Trend <- ifelse(Clim_Islay2$Trend == "Dec", "Decreasing", "Increasing")
 
+
 I1 <- ggplot(mapping=aes(x= All_freeze, y = Young, group = Trend, colour = Trend)) + 
       geom_ribbon(data = fitITop, mapping =aes(x=All_freeze, ymin = lower, ymax = upper, group = Trend), 
                   alpha = 0.2, colour = NA, fill = "grey")+
       geom_line(data=fitITop, size = 1.25)  +
       geom_point(data = Clim_Islay2, alpha = 0.5) +
-      xlab("Days below 0°C (April 1st – August 31st)") + ylab("Number of juveniles per 1000; Islay") +
+      xlab("Days below 0°C (April 1st – August 31st)") + ylab("Number of juveniles per 1000") +
       labs(colour="Global trend:") +
       theme_bw() +
       scale_colour_manual(values=c("#E1BE6A", "#40B0A6")) +
@@ -328,8 +329,10 @@ I1 <- ggplot(mapping=aes(x= All_freeze, y = Young, group = Trend, colour = Trend
             panel.grid.minor.x = element_blank(), 
             panel.grid.major.y = element_blank(),
             panel.grid.major.x = element_blank(),
-            legend.spacing.x = unit(0.4, "cm"))+ 
-  annotate(geom="text", x=75, y=340, label="a)",color="black", size =8)
+            legend.spacing.x = unit(0.4, "cm")) + 
+     annotate(geom="text", x=72, y=350, label="Islay", color="#0072B2", size =8)
+
+
 
 
 ## use the effects package to extract the fit for the first variable
@@ -355,7 +358,7 @@ I2 <- ggplot(mapping=aes(x= All_precip, y = Young, group = Trend, colour = Trend
                   alpha = 0.2, colour = NA, fill = "grey")+
       geom_line(data=fitITop2, size = 1.25)  +
       geom_point(data = Clim_Islay2, alpha = 0.5) +
-      xlab("Total precipitation/mm (April 1st – August 31st)") + ylab("Number of juveniles per 1000; Islay") +
+      xlab("Total precipitation/mm (April 1st – August 31st)") + ylab("Number of juveniles per 1000") +
       labs(colour="Global trend:") +
       theme_bw() +
       scale_colour_manual(values=c("#E1BE6A", "#40B0A6")) +
@@ -368,14 +371,7 @@ I2 <- ggplot(mapping=aes(x= All_precip, y = Young, group = Trend, colour = Trend
             panel.grid.major.y = element_blank(),
             panel.grid.major.x = element_blank(),
             legend.spacing.x = unit(0.4, "cm")) +
-            annotate(geom="text", x=90, y=300, label="b)",color="black", size =8)
-
-## now arrange both of the plots onto a single plot
-ggarrange(I1, I2, common.legend = T, nrow = 2)
-
-ggsave("Paper Plots/Figure 7- Islay Freezedays and precip days vs producitvity.png", 
-       width = 25, height = 30, units = "cm")
-
+      annotate(geom="text", x=82, y=310, label="Islay", color="#0072B2", size =8)
 
 
 #----------------------------------#
@@ -452,7 +448,7 @@ W1<-ggplot(mapping=aes(x= pre_hatch_freeze, y = Young, group = Trend, colour = T
                 alpha = 0.2, colour = NA, fill = "grey")+
     geom_line(data=fitWTop, size = 1.25)  +
     geom_point(data = Clim_Wexf2, alpha = 0.5) +
-    xlab("Days below 0°C (April 1st – June 20th)") + ylab("Number of juveniles per 1000; Wexford") +
+    xlab("Days below 0°C (April 1st–June 20th)") + ylab("Number of juveniles per 1000") +
     labs(colour="Global trend") +
     theme_bw() +
     scale_colour_manual(values=c("#E1BE6A", "#40B0A6")) +
@@ -465,7 +461,7 @@ W1<-ggplot(mapping=aes(x= pre_hatch_freeze, y = Young, group = Trend, colour = T
           panel.grid.major.y = element_blank(),
           panel.grid.major.x = element_blank(),
           legend.spacing.x = unit(0.4, "cm"))+ 
-  annotate(geom="text", x=73, y=340, label="a)",color="black", size =8)
+  annotate(geom="text", x=70, y=340, label="Wexf", color="#D55E00", size =8)
 
 
 
@@ -494,7 +490,7 @@ W2<-ggplot(mapping=aes(x= pre_hatch_precip, y = Young, group = Trend, colour = T
                 alpha = 0.2, colour = NA, fill = "grey")+
     geom_line(data=fitWTop2, size = 1.25)  +
     geom_point(data = Clim_Wexf2, alpha = 0.5) +
-    xlab("Total Precipitation/mm (April 1st – June 20th)") + ylab("Number of juveniles per 1000; Wexford") +
+    xlab("Total Precipitation/mm (April 1st–June 20th)") + ylab("Number of juveniles per 1000") +
     labs(colour="Global trend:") +
     theme_bw() +
     scale_colour_manual(values=c("#E1BE6A", "#40B0A6")) +
@@ -507,14 +503,11 @@ W2<-ggplot(mapping=aes(x= pre_hatch_precip, y = Young, group = Trend, colour = T
           panel.grid.major.y = element_blank(),
           panel.grid.major.x = element_blank(),
           legend.spacing.x = unit(0.4, "cm")) +
-  annotate(geom="text", x=52, y=340, label="b)",color="black", size =8)
+  annotate(geom="text", x=48, y=340, label="Wexf", color="#D55E00", size =8)
 
 
-## now arrange both of the plots onto a single plot
-ggarrange(W1, W2, common.legend = T, nrow = 2, legend = "top")
+## now arrange all of the plots onto a single plot
+ggarrange(I1, W1, I2, W2, common.legend = T, nrow = 2, ncol = 2, legend = "top")
 
-ggsave("Paper Plots/Figure 8- Wexford Freezedays and Precip vs producitvity.png", 
-       width = 26, height = 30, units = "cm")
-
-
-
+ggsave("Paper Plots/Figure 7- Freezedays and Precip vs producitvity.png",
+       width = 32, height = 26, units = "cm")
