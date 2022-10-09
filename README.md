@@ -38,11 +38,6 @@ MS will be submitted to *Journal of Animal Ecology*
 - `Helper functions`: Additional functions to call for modelling
 
 
-
-
-## Data description
-
-
 ## Abstract
 
 1.	To understand metapopulation declines we generally look for changes in demographic rates within a single or few sub-populations and presume they are widely representative. With this information, we often ascribe blanket conservation measures across metapopulations to reverse declines by targeting the proximate mechanism(s) for overall population change. However, such approaches may not be appropriate in circumstances where sub-populations are spatiotemporally segregated during the annual cycle and exposed to different environmental changes. 
