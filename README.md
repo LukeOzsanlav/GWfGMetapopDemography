@@ -24,6 +24,20 @@ MS will be submitted to *Journal of Animal Ecology*
 
 ## Code description
 
+- `1- Individual- Phenology calculator.R`: Calculates the departure and arrival dates into Greenland and Iceland for each tracked bird                                 
+- `2- Individual- Classify incubations.R`: Calculates the incubation length for each tracked bird                     
+- `3- Individual- Calculate nest locations.R`: From the incubation period this script calculates the putative nest location                 
+- `4- Individual- Derive explanatory variables from Env-data.R`: Calculate the climatic conditions that each tracked bird experiences on the breeding grounds 
+- `5- Individual- Create dataframe for models.R`: Create the data frame for individual-level models             
+- `6- Individual- Breeding success & propensity models.R`: Run the binary GLMMs for breeding propensity and success    
+- `7- Individual- Nest survival models.R`: Run cox ph models for nest survival                     
+- `8- Individual- Repeatability of Greenland Arrival date.R`: Use rptR package to calculate repeatability of Greenland arrival dates
+- `9- Population- Create pop-level sampling sites.R`: Choose the sites where sub-population climactic conditions are calculated
+- `10- Population- Climatic effects on pop-productivity.R`: Model how the temperature and precipitation correlate with population-level productivity    
+- `11- Create population trend graphs.R`: Creates figure 1 in the MS
+- `Helper functions`: Additional functions to call for modelling
+
+
 
 
 ## Data description
