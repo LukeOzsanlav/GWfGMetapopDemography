@@ -24,7 +24,7 @@ MS will be submitted to *Journal of Animal Ecology*
 
 ## Code description
 
-- `1- Individual- Phenology calculator.R`: Calculates the departure and arrival dates into Greenland and Iceland for each tracked bird [link](Code)                                 
+- `1- Individual- Phenology calculator.R`: Calculates the departure and arrival dates into Greenland and Iceland for each tracked bird [link](Code/`1- Individual- Phenology calculator.R`)                                 
 - `2- Individual- Classify incubations.R`: Calculates the incubation length for each tracked bird                     
 - `3- Individual- Calculate nest locations.R`: From the incubation period this script calculates the putative nest location                 
 - `4- Individual- Derive explanatory variables from Env-data.R`: Calculate the climatic conditions that each tracked bird experiences on the breeding grounds 
