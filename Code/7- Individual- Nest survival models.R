@@ -9,7 +9,7 @@
 
 ## packages required
 pacman::p_load(tidyverse, data.table, survival, finalfit, ggpubr,
-               survminer, coxme, MuMIn, forestplot, dplyr, ltm)
+               survminer, coxme, MuMIn, forestplot, dplyr, ltm, rphylopic)
 
 ## read in helper functions needed to format data for counting process coxph models
 source("Code/Helper functions/CoxPH-additional-functions.R")
@@ -532,6 +532,10 @@ Ests <- Ests %>%
         mutate(Param = rev(rownames(Ests)),
                Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
 
+## get goose image from rphylopic
+goose <- name_search(text = "Anser albifrons", options = "namebankID")[[1]]
+goose_img <- image_data(name_images(uuid = goose$uid[1])$supertaxa[[1]]$uid, size=1024)[[1]]
+
 Wexf <- ggplot(Ests) +
         geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
         geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
@@ -549,7 +553,8 @@ Wexf <- ggplot(Ests) +
               axis.text=element_text(size=14), 
               legend.text=element_text(size=12),
               panel.grid.minor.x = element_blank(),
-              legend.position = "none")
+              legend.position = "none") +
+        add_phylopic(goose_img, x=-4.5, y=2, ysize = 1.6, alpha=1, color="#D55E00")
 
 
 
@@ -631,7 +636,8 @@ Islay <- ggplot(Ests2) +
                 axis.text=element_text(size=14), 
                 legend.text=element_text(size=12),
                 panel.grid.minor.x = element_blank(),
-                legend.position = "none")
+                legend.position = "none") +
+          add_phylopic(goose_img, x=-2.2, y=2, ysize = 1.5, alpha=1, color="#0072B2")
 
 
 ## save the plot as a png
