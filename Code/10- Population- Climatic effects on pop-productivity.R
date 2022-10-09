@@ -317,7 +317,7 @@ I1 <- ggplot(mapping=aes(x= All_freeze, y = Young, group = Trend, colour = Trend
                   alpha = 0.2, colour = NA, fill = "grey")+
       geom_line(data=fitITop, size = 1.25)  +
       geom_point(data = Clim_Islay2, alpha = 0.5) +
-      xlab("Days below 0°C (April 1st – August 31st)") + ylab("Number of juveniles per 1000") +
+      xlab("Days below 0°C (April 1st–August 31st)") + ylab("Number of juveniles per 1000") +
       labs(colour="Global trend:") +
       theme_bw() +
       scale_colour_manual(values=c("#E1BE6A", "#40B0A6")) +
@@ -330,7 +330,7 @@ I1 <- ggplot(mapping=aes(x= All_freeze, y = Young, group = Trend, colour = Trend
             panel.grid.major.y = element_blank(),
             panel.grid.major.x = element_blank(),
             legend.spacing.x = unit(0.4, "cm")) + 
-     annotate(geom="text", x=72, y=350, label="Islay", color="#0072B2", size =8)
+     annotate(geom="text", x=72, y=355, label="Islay", color="#0072B2", size =8)
 
 
 
@@ -358,7 +358,7 @@ I2 <- ggplot(mapping=aes(x= All_precip, y = Young, group = Trend, colour = Trend
                   alpha = 0.2, colour = NA, fill = "grey")+
       geom_line(data=fitITop2, size = 1.25)  +
       geom_point(data = Clim_Islay2, alpha = 0.5) +
-      xlab("Total precipitation/mm (April 1st – August 31st)") + ylab("Number of juveniles per 1000") +
+      xlab("Total precipitation/mm (April 1st–August 31st)") + ylab("Number of juveniles per 1000") +
       labs(colour="Global trend:") +
       theme_bw() +
       scale_colour_manual(values=c("#E1BE6A", "#40B0A6")) +
@@ -371,7 +371,7 @@ I2 <- ggplot(mapping=aes(x= All_precip, y = Young, group = Trend, colour = Trend
             panel.grid.major.y = element_blank(),
             panel.grid.major.x = element_blank(),
             legend.spacing.x = unit(0.4, "cm")) +
-      annotate(geom="text", x=82, y=310, label="Islay", color="#0072B2", size =8)
+      annotate(geom="text", x=84, y=285, label="Islay", color="#0072B2", size =8)
 
 
 #----------------------------------#
