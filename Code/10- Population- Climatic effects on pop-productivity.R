@@ -461,7 +461,7 @@ W1<-ggplot(mapping=aes(x= pre_hatch_freeze, y = Young, group = Trend, colour = T
           panel.grid.major.y = element_blank(),
           panel.grid.major.x = element_blank(),
           legend.spacing.x = unit(0.4, "cm"))+ 
-  annotate(geom="text", x=70, y=340, label="Wexf", color="#D55E00", size =8)
+  annotate(geom="text", x=70, y=340, label="Wexford", color="#D55E00", size =8)
 
 
 
@@ -503,7 +503,7 @@ W2<-ggplot(mapping=aes(x= pre_hatch_precip, y = Young, group = Trend, colour = T
           panel.grid.major.y = element_blank(),
           panel.grid.major.x = element_blank(),
           legend.spacing.x = unit(0.4, "cm")) +
-  annotate(geom="text", x=48, y=340, label="Wexf", color="#D55E00", size =8)
+  annotate(geom="text", x=48, y=340, label="Wexford", color="#D55E00", size =8)
 
 
 ## now arrange all of the plots onto a single plot

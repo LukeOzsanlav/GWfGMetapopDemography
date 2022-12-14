@@ -544,7 +544,7 @@ Wexf <- ggplot(Ests) +
         ylab("") +
         xlim(-5, 5) +
         scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
-        annotate(geom="text", x=4.4, y=9.2, label="Wexf",color="#D55E00", size =7) +
+        annotate(geom="text", x=4.3, y=9.2, label="Wexford",color="#D55E00", size =7) +
         theme(panel.grid.minor.y = element_blank(),
               panel.grid.major.x = element_blank(),
               panel.grid.major.y = element_blank(),
