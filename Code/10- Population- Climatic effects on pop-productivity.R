@@ -409,9 +409,9 @@ summary(Pre2);confint(Pre2)
 
 
 ## Look for trends in the variable of interest
-#Trend1 <- gls(All_freeze ~ year, correlation = corAR1(), data = Clim_Islay)
-#top_mod_effects <- effects::predictorEffects(Trend1); plot(top_mod_effects)
-#summary(Trend1)
+# Trend1 <- gls(All_freeze ~ year, correlation = corAR1(), data = Clim_Islay)
+# top_mod_effects <- effects::predictorEffects(Trend1); plot(top_mod_effects)
+# summary(Trend1)
 
 ## Use dredge on the top model
 options(na.action = "na.fail") 
@@ -509,5 +509,197 @@ W2<-ggplot(mapping=aes(x= pre_hatch_precip, y = Young, group = Trend, colour = T
 ## now arrange all of the plots onto a single plot
 ggarrange(I1, W1, I2, W2, common.legend = T, nrow = 2, ncol = 2, legend = "top")
 
-ggsave("Paper Plots/Figure 7- Freezedays and Precip vs producitvity.png",
-       width = 32, height = 26, units = "cm")
+# ggsave("Paper Plots/Figure 7- Freezedays and Precip vs producitvity.png",
+#        width = 32, height = 26, units = "cm")
+
+
+
+
+
+#----------------------------------#
+## 7. Temporal trends in climate ###
+#----------------------------------#
+
+#--------------------------------------#
+#### 7.1 Plot trends in Temperature ####
+#--------------------------------------#
+
+## Trend in Islay Temperature
+Trend1 <- gls(All_freeze ~ year, correlation = corAR1(), data = Clim_Islay)
+summary(Trend1)
+anova(Trend1)
+confint(Trend1)
+
+## extract the model fit
+divisions <- 200
+IslayTemp <- predictorEffects(Trend1, focal.levels = divisions)
+plot(IslayTemp[1])
+effectsIslay1 <- IslayTemp[1]
+fitIslayT <- as.data.frame(cbind(effectsIslay1[["year"]][["fit"]], effectsIslay1[["year"]][["lower"]], 
+                                 effectsIslay1[["year"]][["upper"]], effectsIslay1[["year"]][["x"]][["year"]]))
+
+## change the names to something meaningful
+setnames(fitIslayT, old = c("V1", "V2", "V3", "V4"), new = c("fit", "lower", "upper", "year"))
+
+## make the plot
+IT <- ggplot() + 
+        geom_point(data = Clim_Islay, aes(x = year, y = All_freeze), shape = 1, colour = "grey", stroke = 1.5) +
+        geom_ribbon(data = fitIslayT, mapping =aes(x=year, ymin = lower, ymax = upper), alpha = 0.2, colour = NA, fill = "grey")+
+        geom_line(data=fitIslayT, aes(x= year, y = fit), size = 1.25, colour = "#0072B2")  +
+        xlab("Year") + ylab("Days Sub 0°C (April 1st–August 31st)") +
+        theme_bw() + ylim(28, 80) +
+        #scale_colour_manual(values=c("#0072B2", "#D55E00")) +
+        theme(panel.grid.minor.y = element_blank(),
+              axis.title=element_text(size=18),
+              axis.text=element_text(size=14),
+              legend.text=element_text(size=14),
+              legend.title=element_text(size=14),
+              panel.grid.minor.x = element_blank(), 
+              panel.grid.major.y = element_blank(),
+              panel.grid.major.x = element_blank(),
+              plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")) +
+        annotate(geom="text", x= 2017.5, y= 79, label="Islay*", color="#0072B2", size =8)
+
+
+
+
+## Trend in Wexford Temp
+Trend2 <- gls(pre_hatch_freeze ~ year, correlation = corAR1(), data = Clim_Wexf)
+summary(Trend2)
+anova(Trend2)
+confint(Trend2)
+
+## extract the model fit
+divisions <- 200
+WexfTemp <- predictorEffects(Trend2, focal.levels = divisions)
+plot(WexfTemp[1])
+effectsWexf1 <- WexfTemp[1]
+fitWexfT <- as.data.frame(cbind(effectsWexf1[["year"]][["fit"]], effectsWexf1[["year"]][["lower"]], 
+                                 effectsWexf1[["year"]][["upper"]], effectsWexf1[["year"]][["x"]][["year"]]))
+
+## change the names to something meaningful
+setnames(fitWexfT, old = c("V1", "V2", "V3", "V4"), new = c("fit", "lower", "upper", "year"))
+
+## make the plot
+WT <- ggplot() + 
+        geom_point(data = Clim_Wexf, aes(x = year, y = All_freeze), shape = 1, colour = "grey", stroke = 1.5) +
+        geom_ribbon(data = fitWexfT, mapping =aes(x=year, ymin = lower, ymax = upper), alpha = 0.2, colour = NA, fill = "grey")+
+        geom_line(data=fitWexfT, aes(x= year, y = fit), size = 1.25, colour = "#D55E00")  +
+        xlab("Year") + ylab("Days Sub 0°C (April 1st–June 20th)") +
+        theme_bw() + ylim(28, 80) +
+        #scale_colour_manual(values=c("#0072B2", "#D55E00")) +
+        theme(panel.grid.minor.y = element_blank(),
+              axis.title=element_text(size=18),
+              axis.text=element_text(size=14),
+              legend.text=element_text(size=14),
+              legend.title=element_text(size=14),
+              panel.grid.minor.x = element_blank(), 
+              panel.grid.major.y = element_blank(),
+              panel.grid.major.x = element_blank(),
+              plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")) +
+      annotate(geom="text", x= 2015.5, y= 79, label="Wexford*", color="#D55E00", size =8)
+
+
+
+
+#----------------------------------------#
+#### 7.2 Plot trends in Precipitation ####
+#----------------------------------------#
+
+## Trend in Islay Precipitation
+Trend1_2 <- gls(All_precip ~ year, correlation = corAR1(), data = Clim_Islay)
+summary(Trend1_2)
+anova(Trend1_2)
+confint(Trend1_2)
+
+## extract the model fit
+divisions <- 200
+IslayPrecip <- predictorEffects(Trend1_2, focal.levels = divisions)
+plot(IslayPrecip[1])
+effectsIslay2 <- IslayPrecip[1]
+fitIslayP <- as.data.frame(cbind(effectsIslay2[["year"]][["fit"]], effectsIslay2[["year"]][["lower"]], 
+                                 effectsIslay2[["year"]][["upper"]], effectsIslay2[["year"]][["x"]][["year"]]))
+
+## change the names to something meaningful
+setnames(fitIslayP, old = c("V1", "V2", "V3", "V4"), new = c("fit", "lower", "upper", "year"))
+
+## make the plot
+IP <- ggplot() + 
+  geom_point(data = Clim_Islay, aes(x = year, y = All_precip), shape = 1, colour = "grey", stroke = 1.5) +
+  geom_ribbon(data = fitIslayP, mapping =aes(x=year, ymin = lower, ymax = upper), alpha = 0.2, colour = NA, fill = "grey")+
+  geom_line(data=fitIslayP, aes(x= year, y = fit), size = 1.25, colour = "#0072B2")  +
+  xlab("Year") + ylab("Total Precip/mm (April 1st–August 31st)") +
+  theme_bw() + ylim(10, 90) +
+  #scale_colour_manual(values=c("#0072B2", "#D55E00")) +
+  theme(panel.grid.minor.y = element_blank(),
+        axis.title=element_text(size=18),
+        axis.text=element_text(size=14),
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14),
+        panel.grid.minor.x = element_blank(), 
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")) +
+  annotate(geom="text", x= 2017.5, y= 89, label="Islay*", color="#0072B2", size =8)
+
+
+
+
+## Trend in Wexford Precipitation
+Trend2_2 <- gls(pre_hatch_precip ~ year, correlation = corAR1(), data = Clim_Wexf)
+summary(Trend2_2)
+anova(Trend2_2)
+confint(Trend2_2)
+
+## extract the model fit
+divisions <- 200
+WexfPrecip <- predictorEffects(Trend2_2, focal.levels = divisions)
+plot(WexfPrecip[1])
+effectsWexf2 <- WexfPrecip[1]
+fitWexfP <- as.data.frame(cbind(effectsWexf2[["year"]][["fit"]], effectsWexf2[["year"]][["lower"]], 
+                                effectsWexf2[["year"]][["upper"]], effectsWexf2[["year"]][["x"]][["year"]]))
+
+## change the names to something meaningful
+setnames(fitWexfP, old = c("V1", "V2", "V3", "V4"), new = c("fit", "lower", "upper", "year"))
+
+## make the plot
+WP <- ggplot() + 
+        geom_point(data = Clim_Wexf, aes(x = year, y = pre_hatch_precip), shape = 1, colour = "grey", stroke = 1.5) +
+        geom_ribbon(data = fitWexfP, mapping =aes(x=year, ymin = lower, ymax = upper), alpha = 0.2, colour = NA, fill = "grey")+
+        geom_line(data=fitWexfP, aes(x= year, y = fit), size = 1.25, colour = "#D55E00")  +
+        xlab("Year") + ylab("Total Precip/mm (April 1st–June 20th)") +
+        theme_bw() + ylim(10, 90) +
+        #scale_colour_manual(values=c("#0072B2", "#D55E00")) +
+        theme(panel.grid.minor.y = element_blank(),
+              axis.title=element_text(size=18),
+              axis.text=element_text(size=14),
+              legend.text=element_text(size=14),
+              legend.title=element_text(size=14),
+              panel.grid.minor.x = element_blank(), 
+              panel.grid.major.y = element_blank(),
+              panel.grid.major.x = element_blank(),
+              plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")) +
+        annotate(geom="text", x= 2015.5, y= 89, label="Wexford", color="#D55E00", size =8)
+
+
+
+
+
+
+
+
+#-----------------------------#
+#### 7.3 Combine all plots ####
+#-----------------------------#
+
+## combine all of the plots
+ggarrange(IT, WT, IP, WP, nrow=2, ncol = 2)
+
+
+## save the plot
+ggsave("Paper Plots/Supp Fig 5- Climatic trends.png",
+       width = 36, height = 30, units = "cm")
+
+
+
+
