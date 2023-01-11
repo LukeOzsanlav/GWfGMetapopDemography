@@ -18,7 +18,7 @@ Please note that the tracking data set used in the individual-level analysis has
 
 ## Manuscript Status
 
-A pre-print of the Manuscript can be found here: [10.22541/au.167335765.56374213/v1](10.22541/au.167335765.56374213/v1)
+A pre-print of the Manuscript can be found [here](https://www.authorea.com/users/574634/articles/618299-differing-drivers-of-decline-within-a-metapopulation-has-implications-for-future-conservation?commit=5418ddc0fe5199421f4b27a6c2b70ca0a852796c)
 
 MS submitted to *Journal of Animal Ecology* 19/12/2022
 
