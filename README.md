@@ -18,7 +18,7 @@ Please note that the tracking data set used in the individual-level analysis has
 
 ## Manuscript Status
 
-A pre-print of the Manuscript can be found here: 10.22541/au.167335765.56374213/v1
+A pre-print of the Manuscript can be found here: [10.22541/au.167335765.56374213/v1]
 
 MS submitted to *Journal of Animal Ecology* 19/12/2022
 MS resubmitted to *Ecology and Evlution* 07/01/2023
