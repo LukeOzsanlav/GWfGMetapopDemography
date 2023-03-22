@@ -4,7 +4,7 @@
 ## Create average temp, summed precipitation for a pre breeding period, post breeding period and full period
 
 ## packages required
-pacman::p_load(ggplot2, data.table, lubridate, zoo, MuMIn, glmmTMB, 
+pacman::p_load(ggplot2, data.table, lubridate, zoo, MuMIn, glmmTMB, DHARMa,
                nlme, lmtest, effects, performance, ggpubr, patchwork, png)
 library(dplyr)
 library(purrr)
@@ -156,7 +156,7 @@ Clim_period2$pop_trend <- ifelse(Clim_period2$year > 1999, "pop decline", "pop i
 
 
 #---------------------------------------------------------#
-#### 6.1 Organize data sets and do data quality checks ####
+#### 6.1 Organize data sets and test autocorrelation ####
 #---------------------------------------------------------#
 
 ## create a column that is number of young per 1000
@@ -181,16 +181,27 @@ lmtest::dwtest(modeltest); lmtest::dwtest(modeltest2)
 #### 6.2 Check for temporal trends in the number of young ####
 #------------------------------------------------------------#
 
-## This is the model, accounts for autocorrelation
+## Is there autocorrelation in the NULL model and maximal model
+lmtest::dwtest(lm(Young ~ 1, data = Clim_period2))
+lmtest::dwtest(lm(Young ~ year*Ringing_loc, data = Clim_period2))
+
+## Run model without autocorrelation and with autocorrelation
+## Compare the different models with AICc to see what fits better
+csY <- corARMA(c(0.3, -0.3), p = 2, q = 0, form = ~year|Ringing_loc) # define a second order autocorrelation
+TrendyNo <- gls(Young ~ year*Ringing_loc, data = Clim_period2)
 Trendy <- gls(Young ~ year*Ringing_loc, correlation = corAR1(form = ~year|Ringing_loc), data = Clim_period2)
+Trendy2 <- gls(Young ~ year*Ringing_loc, correlation = csY, data = Clim_period2)
+
+## AICc comparison, the autocorrelation does not make a difference
+## Will use the first order autocorrelation as there is autocorrelation in the wexford time series
+AICc(TrendyNo, Trendy, Trendy2)
 
 ## plot and summarize the output
 top_mod_effects <- effects::predictorEffects(Trendy); plot(top_mod_effects)
 summary(Trendy)
 confint(Trendy)
 
-
-## get confidecne intervals for both of the slopes
+## get confidence intervals for both of the slopes
 Clim_period2$Ringing_loc <- as.factor(Clim_period2$Ringing_loc)
 Clim_period2$Ringing_loc <- relevel(Clim_period2$Ringing_loc, "WEXF")
 Trendy2 <- gls(Young ~ year*Ringing_loc, correlation = corAR1(form = ~year|Ringing_loc), data = Clim_period2)
@@ -211,7 +222,7 @@ fitTrendy <- as.data.frame(cbind(effectsTrendy[["year"]][["fit"]], effectsTrendy
                                effectsTrendy[["year"]][["x"]][["year"]]))
 ## change the names to something meaningful
 setnames(fitTrendy, old = c("V1", "V2", "V3", "V4", "V5"), new = c("fit", "lower", "upper", "Ringing_loc", "year"))
-fitTrendy$Ringing_loc <- ifelse(fitTrendy$Ringing_loc == 1, "Islay (Scot)", "Wexford (Ire)")
+fitTrendy$Ringing_loc <- ifelse(fitTrendy$Ringing_loc == 1, "Wexford (Ire)", "Islay (Scot)")
 
 
 ## Now plot using ggplot
@@ -220,6 +231,7 @@ Clim_period3 <- Clim_period2
 Clim_period3$Ringing_loc <- ifelse(Clim_period3$Ringing_loc == "WEXF", "Wexford (Ire)", "Islay (Scot)")
 
 ggplot(mapping=aes(x= year, y = Young, group = Ringing_loc, colour = Ringing_loc)) + 
+  geom_point(data = Clim_period3, mapping = aes(x = year, y = Young, colour = Ringing_loc), size = 1.75, alpha = 0.5) +
   geom_ribbon(data = fitTrendy, mapping =aes(x=year, ymin = lower, ymax = upper, group = Ringing_loc), 
               alpha = 0.2, colour = NA, fill = "grey")+
   geom_line(data=fitTrendy, size = 1.25)  +
@@ -237,7 +249,7 @@ ggplot(mapping=aes(x= year, y = Young, group = Ringing_loc, colour = Ringing_loc
         panel.grid.major.x = element_blank())
 
 # ggsave("Paper Plots/Figure 6- Temporal trends in producitvity.png",
-#        width = 25, height = 15, units = "cm")
+#        width = 25, height = 19, units = "cm")
 
 
 
@@ -251,16 +263,61 @@ cor(Clim_Islay$pre_hatch_freeze, Clim_Islay$pre_hatch_precip)
 cor(Clim_Islay$post_hatch_freeze, Clim_Islay$post_hatch_precip)
 cor(Clim_Islay$All_freeze, Clim_Islay$All_precip)
 
+## Check if we need to account for autocorrelation
+lmtest::dwtest(lm(Young ~ 1, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ Trend*All_freeze + All_precip*Trend, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ pre_hatch_freeze*Trend + pre_hatch_precip*Trend, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ post_hatch_freeze*Trend + post_hatch_precip*Trend, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ All_freeze*Trend + post_hatch_precip*Trend, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ All_freeze*Trend + pre_hatch_precip*Trend, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ post_hatch_freeze*Trend + All_precip*Trend, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ pre_hatch_freeze*Trend + All_precip*Trend, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ post_hatch_freeze*Trend + pre_hatch_precip*Trend, data = Clim_Islay))
+lmtest::dwtest(lm(Young ~ pre_hatch_freeze*Trend + post_hatch_precip*Trend, data = Clim_Islay))
+
+
 ## Models for Islay onlys
 Null <- gls(Young ~ 1, correlation = corAR1(), data = Clim_Islay, method = "ML")
-IAll <- gls(Young ~ Trend*All_freeze + All_precip*Trend, correlation = corAR1(), data = Clim_Islay, method = "ML")
-IPre <- gls(Young ~ pre_hatch_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(), data = Clim_Islay, method = "ML")
-IPost <- gls(Young ~ post_hatch_temp*Trend + post_hatch_precip*Trend, correlation = corAR1(), data = Clim_Islay, method = "ML")
+IAll <- gls(Young ~ All_freeze*Trend + All_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+IPre <- gls(Young ~ pre_hatch_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+IPost <- gls(Young ~ post_hatch_freeze*Trend + post_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+
+IAllPost <- gls(Young ~ All_freeze*Trend + post_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+IAllPre <- gls(Young ~ All_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+
+IPostAll <- gls(Young ~ post_hatch_freeze*Trend + All_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+IPreAll <- gls(Young ~ pre_hatch_freeze*Trend + All_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+
+IPostPre <- gls(Young ~ post_hatch_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+IPrePost <- gls(Young ~ pre_hatch_freeze*Trend + post_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
 
 
 ## compare the AICc of all the models
-AICc(Null, IAll, IPre, IPost)
+AICc(Null, IAll, IPre, IPost, IAllPost, IAllPre, IPostAll, IPreAll, IPostPre, IPrePost)
 model_performance(IAll); model_performance(IPre); model_performance(IPost)
+
+
+## For the best model, check the autocorrelation structure
+csAll <- corARMA(c(0.3, -0.3), p = 2, q = 0, form = ~year) # define a second order autocorrelation
+IAllNo <- gls(Young ~ All_freeze*Trend + All_precip*Trend,  data = Clim_Islay, method = "ML")
+IAll1 <- gls(Young ~ All_freeze*Trend + All_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Islay, method = "ML")
+IAll2 <- gls(Young ~ All_freeze*Trend + All_precip*Trend, csAll, data = Clim_Islay, method = "ML")
+AICc(IAllNo, IAll1, IAll2)
+
+
+
+## Make plots of the autocorrelations
+par(mfrow=c(1,2))
+E <- residuals(IAllNo, type = "normalized")
+plot(acf(E, plot = F), main="Islay- No Autocorrelation Term")
+
+E2 <- residuals(IAll1, type = "normalized")
+plot(acf(E2, plot = F), main="Islay- First Order Autocorrelation Term")
+
+## save autocorrelation plot
+png(filename = "Paper Plots/Supp Fig 2- ACF plots Islay.png", res = 300,
+    width = 650, height = 480)
+
 
 
 ## get the p-values for the top model and plot the effects
@@ -287,6 +344,12 @@ Ims2 <- MuMIn::dredge(IAll, trace = 2, rank = "AICc")
 Ims2_sub <- subset(Ims2, !nested(.), recalc.weights=T) ## this bit of code stops nested models being included in the subst of models for av
 Ims2_sub <- subset(Ims2_sub, delta < 6, recalc.weights=T)
 
+
+
+
+#---------------------------------#
+#### 6.4 Plot Models for Islay ####
+#---------------------------------#
 
 ## Run the top model from MuMin and then plot it
 ITop <- gls(Young ~ All_freeze*Trend + All_precip*Trend, correlation = corAR1(), data = Clim_Islay, method = "ML")
@@ -374,10 +437,13 @@ I2 <- ggplot(mapping=aes(x= All_precip, y = Young, group = Trend, colour = Trend
       annotate(geom="text", x=84, y=285, label="Islay", color="#0072B2", size =8)
 
 
+
+
 #----------------------------------#
-#### 6.4 Run models for Wexford ####
+#### 6.5 Run models for Wexford ####
 #----------------------------------#
 
+## check for correlations betwen variables
 cor(Clim_Wexf$pre_hatch_freeze, Clim_Wexf$pre_hatch_precip)
 cor(Clim_Wexf$post_hatch_freeze, Clim_Wexf$post_hatch_precip)
 cor(Clim_Wexf$All_freeze, Clim_Wexf$All_precip)
@@ -385,16 +451,63 @@ cor(Clim_Wexf$All_freeze, Clim_Wexf$pre_hatch_precip)
 cor(Clim_Wexf$All_freeze, Clim_Wexf$post_hatch_precip)
 cor(Clim_Wexf$All_precip, Clim_Wexf$pre_hatch_freeze)
 
-## Now do the same for the Wexford population
-Null <- gls(Young ~ 1, correlation = corAR1(), data = Clim_Wexf)
-WAll <- gls(Young ~ All_freeze*Trend + All_precip*Trend, correlation = corAR1(), data = Clim_Wexf, method = "ML")
-WPre <- gls(Young ~ pre_hatch_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(), data = Clim_Wexf, method = "ML")
-WPost <- gls(Young ~ post_hatch_freeze*Trend + post_hatch_precip*Trend, correlation = corAR1(), data = Clim_Wexf, method = "ML")
+## Check that what the model without correlations is like
+lmtest::dwtest(lm(Young ~ 1, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ Trend*All_freeze + All_precip*Trend, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ pre_hatch_freeze*Trend + pre_hatch_precip*Trend, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ post_hatch_freeze*Trend + post_hatch_precip*Trend, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ All_freeze*Trend + post_hatch_precip*Trend, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ All_freeze*Trend + pre_hatch_precip*Trend, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ post_hatch_freeze*Trend + All_precip*Trend, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ pre_hatch_freeze*Trend + All_precip*Trend, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ post_hatch_freeze*Trend + pre_hatch_precip*Trend, data = Clim_Wexf))
+lmtest::dwtest(lm(Young ~ pre_hatch_freeze*Trend + post_hatch_precip*Trend, data = Clim_Wexf))
 
 
-## compare the AICc of all the models
-AICc(Null, WAll, WPre, WPost)
-summary(WPre)
+## Models for Islay onlys
+Null <- gls(Young ~ 1, correlation = corAR1(), data = Clim_Wexf, method = "ML")
+WAll <- gls(Young ~ All_freeze*Trend + All_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+WPre <- gls(Young ~ pre_hatch_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+WPost <- gls(Young ~ post_hatch_freeze*Trend + post_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+
+WAllPost <- gls(Young ~ All_freeze*Trend + post_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+WAllPre <- gls(Young ~ All_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+
+WPostAll <- gls(Young ~ post_hatch_freeze*Trend + All_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+WPreAll <- gls(Young ~ pre_hatch_freeze*Trend + All_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+
+WPostPre <- gls(Young ~ post_hatch_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+WPrePost <- gls(Young ~ pre_hatch_freeze*Trend + post_hatch_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+
+
+## compare the AWCc of all the models
+AICc(Null, WAll, WPre, WPost, WAllPost, WAllPre, WPostAll, WPreAll, WPostPre, WPrePost)
+model_performance(WPre)
+
+## For the best model, check the autocorrelation structure
+csAll <- corARMA(c(0.3, -0.3), p = 2, q = 0, form = ~year) # define a second order autocorrelation
+WAllNo <- gls(Young ~ All_freeze*Trend + All_precip*Trend,  data = Clim_Wexf, method = "ML")
+WAll1 <- gls(Young ~ All_freeze*Trend + All_precip*Trend, correlation = corAR1(form = ~year), data = Clim_Wexf, method = "ML")
+WAll2 <- gls(Young ~ All_freeze*Trend + All_precip*Trend, csAll, data = Clim_Wexf, method = "ML")
+AICc(WAllNo, WAll1, WAll2)
+
+## Make plots of the autocorrelations
+par(mfrow=c(1,2))
+E <- residuals(WAllNo, type = "normalized")
+plot(acf(E, plot = F), main="Wexford- No Autocorrelation Term")
+
+E2 <- residuals(WAll1, type = "normalized")
+plot(acf(E2, plot = F), main="Wexford- First Order Autocorrelation Term")
+
+## save autocorrelation plot
+png(filename = "Paper Plots/Supp Fig 3- ACF plots Wexf.png", res = 300,
+    width = 650, height = 480)
+
+
+
+
+
+
 
 ## get the p-values for the top model and plot the effects
 summary(WPre); confint(WPre)
@@ -420,6 +533,11 @@ Wms2_sub <- subset(Wms2, !nested(.), recalc.weights=T) ## this bit of code stops
 Wms2_sub <- subset(Wms2_sub, delta < 6, recalc.weights=T)
 
 
+
+
+#-----------------------------------#
+#### 6.6 Plot models for Wexford ####
+#-----------------------------------#
 
 ## Run the top model from MuMin and then plot it
 WTop <- gls(Young ~ pre_hatch_freeze*Trend + pre_hatch_precip*Trend, correlation = corAR1(), data = Clim_Wexf, method = "ML")
