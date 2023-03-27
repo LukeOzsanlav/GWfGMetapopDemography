@@ -38,7 +38,7 @@ Phen <- Phenol %>%
         mutate(Green_centre = yday(Green_arrive)-mean(yday(Green_arrive), na.rm = T)) %>% 
         ungroup() %>% 
         drop_na(Green_centre) %>% 
-        select(tag_year, year, ID, Green_centre)
+        select(c(tag_year, year, ID, Green_centre))
 
 ## Format tag info
 tag_info <- Info %>% 

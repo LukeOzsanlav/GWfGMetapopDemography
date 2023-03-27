@@ -23,7 +23,7 @@ A pre-print of the Manuscript can be found [here](https://www.authorea.com/users
 
 MS submitted to *Journal of Animal Ecology* 19/12/2022
 
-MS resubmitted to *Ecology and Evlution* 07/01/2023
+MS resubmitted to *Ecology and Evolution* 07/01/2023
 Major revisions received 15/03/2023
 
 

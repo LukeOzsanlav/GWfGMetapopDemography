@@ -8,8 +8,8 @@
  
 
 ## packages required
-pacman::p_load(tidyverse, data.table, survival, finalfit, ggpubr,
-               survminer, coxme, MuMIn, forestplot, dplyr, ltm, rphylopic)
+pacman::p_load(tidyverse, data.table, survival, finalfit, ggpubr, sf, magick,
+               survminer, coxme, MuMIn, forestplot, dplyr, ltm, rnaturalearth)
 
 ## read in helper functions needed to format data for counting process coxph models
 source("Code/Helper functions/CoxPH-additional-functions.R")
@@ -101,7 +101,7 @@ ggplot(aes(x=Symbol, y = Weight)) +
         panel.grid.minor.x = element_blank(), strip.text.x = element_text(size = 13))
 
 ## read out this plot
-ggsave("Paper Plots/Supp Fig 1- PCA axis 1 loadings.png", 
+ggsave("Paper Plots/Supp Fig 4- PCA axis 1 loadings.png", 
               width = 24, height = 24, units = "cm")
 
 
@@ -479,21 +479,22 @@ length(unique(Exp_ph2_Low$Tag_year))
 
 mod.nullWexf <-  coxme(Surv ~ (1|ID), data= Exp_ph2_Hvan)
 
-mod_Wexf_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip + avg_temp + laying_centre + Green_centre + year + (1|ID), 
+mod_Wexf_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip + avg_temp + Green_centre + year + (1|ID), 
                         data= Exp_ph2_Hvan)
-mod_Wexf_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip2 + avg_temp2 + laying_centre + Green_centre + year + (1|ID), 
+mod_Wexf_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip2 + avg_temp2 + Green_centre + year + (1|ID), 
                          data= Exp_ph2_Hvan)
-mod_Wexf_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip3 + avg_temp3 + laying_centre + Green_centre + year + (1|ID), 
+mod_Wexf_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip3 + avg_temp3 + Green_centre + year + (1|ID), 
                          data= Exp_ph2_Hvan)
-mod_Wexf_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip4 + avg_temp4 + laying_centre + Green_centre + year + (1|ID), 
+mod_Wexf_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip4 + avg_temp4 + Green_centre + year + (1|ID), 
                          data= Exp_ph2_Hvan)
-mod_Wexf_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip5 + avg_temp5 + laying_centre + Green_centre + year + (1|ID), 
+mod_Wexf_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip5 + avg_temp5 + Green_centre + year + (1|ID), 
                          data= Exp_ph2_Hvan)
-mod_Wexf_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip10 + avg_temp10 + laying_centre + Green_centre + year + (1|ID), 
+mod_Wexf_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip10 + avg_temp10 + Green_centre + year + (1|ID), 
                           data= Exp_ph2_Hvan)
 
 ## compare the different models with AICc
-AICc(mod.nullWexf, mod_Wexf_ran, mod_Wexf_ran2, mod_Wexf_ran3, mod_Wexf_ran4, mod_Wexf_ran5, mod_Wexf_ran10)
+AICTabW <- AICc(mod.nullWexf, mod_Wexf_ran, mod_Wexf_ran2, mod_Wexf_ran3, mod_Wexf_ran4, mod_Wexf_ran5, mod_Wexf_ran10)
+AICTabW
 
 ## get the summary from the best model
 summary(mod_Wexf_ran4)
@@ -523,8 +524,8 @@ ggcoxzph(cox.zph(mod_Wexf_check)) #  For each covariate it produces plots with s
 ## get the estimates and confidence intervals from the models
 Ests <- data.frame(summary(mod_Wexf_ran4)$coefficients)
 Ests <- Ests %>% cbind(confint(mod_Wexf_ran4)) %>% dplyr::rename(Estimate = `summary.mod_Wexf_ran4..coefficients`)
-rownames(Ests) <- c("ArrPrecip", "Clim", "Precip(t)", "Temp(t)",
-                    "Inc", "Arrival", "year[2019]", "year[2020]", "year[2021]")
+rownames(Ests) <- c("Arrival Precipitation", "Arrival Climate PCA", "Nesting Precipitation", "Nesting Temperature",
+                    "Arrival Date", "Year [2019]", "Year [2020]", "Year [2021]")
 
 ## make a forest plot fo the model estimates
 Ests <- Ests %>% 
@@ -532,10 +533,8 @@ Ests <- Ests %>%
         mutate(Param = rev(rownames(Ests)),
                Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
 
-## get goose image from rphylopic
-goose <- name_search(text = "Anser albifrons", options = "namebankID")[[1]]
-goose_img <- image_data(name_images(uuid = goose$uid[1])$supertaxa[[1]]$uid, size=1024)[[1]]
 
+## Wexford forest plot
 Wexf <- ggplot(Ests) +
         geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
         geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
@@ -544,7 +543,7 @@ Wexf <- ggplot(Ests) +
         ylab("") +
         xlim(-5, 5) +
         scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
-        annotate(geom="text", x=4.3, y=9.2, label="Wexford",color="#D55E00", size =7) +
+        annotate(geom="text", x=4.4, y=8.3, label="Wexford",color="#D55E00", size =7) +
         theme(panel.grid.minor.y = element_blank(),
               panel.grid.major.x = element_blank(),
               panel.grid.major.y = element_blank(),
@@ -553,11 +552,8 @@ Wexf <- ggplot(Ests) +
               axis.text=element_text(size=14), 
               legend.text=element_text(size=12),
               panel.grid.minor.x = element_blank(),
-              legend.position = "none") +
-        add_phylopic(goose_img, x=-4.5, y=2, ysize = 1.6, alpha=1, color="#D55E00")
-
-
-
+              legend.position = "none") 
+        
 
 
 #----------------------------#
@@ -566,25 +562,26 @@ Wexf <- ggplot(Ests) +
 
 mod.null <-  coxme(Surv ~ (1|ID), data= Exp_ph2_Low)
 
-mod_Islay_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip + avg_temp + laying_centre + Green_centre + year + (1|ID), 
+mod_Islay_ran  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip + avg_temp + Green_centre + year + (1|ID), 
                         data= Exp_ph2_Low)
-mod_Islay_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip2 + avg_temp2 + laying_centre + Green_centre + year + (1|ID), 
+mod_Islay_ran2  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip2 + avg_temp2 + Green_centre + year + (1|ID), 
                          data= Exp_ph2_Low)
-mod_Islay_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip3 + avg_temp3 + laying_centre + Green_centre + year + (1|ID), 
+mod_Islay_ran3  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip3 + avg_temp3 + Green_centre + year + (1|ID), 
                          data= Exp_ph2_Low)
-mod_Islay_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip4 + avg_temp4 + laying_centre + Green_centre + year + (1|ID), 
+mod_Islay_ran4  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip4 + avg_temp4 + Green_centre + year + (1|ID), 
                          data= Exp_ph2_Low)
-mod_Islay_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip5 + avg_temp5 + laying_centre + + Green_centre + year + (1|ID), 
+mod_Islay_ran5  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip5 + avg_temp5 + + Green_centre + year + (1|ID), 
                          data= Exp_ph2_Low)
-mod_Islay_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip10 + avg_temp10 + laying_centre + Green_centre + year + (1|ID), 
+mod_Islay_ran10  <-  coxme(Surv ~ Gr10precip + Comp1 + sum_precip10 + avg_temp10 + Green_centre + year + (1|ID), 
                           data= Exp_ph2_Low)
 
 ## compare the different models with AICc
-AICc(mod.null, mod_Islay_ran, mod_Islay_ran2, mod_Islay_ran3, mod_Islay_ran4, mod_Islay_ran5, mod_Islay_ran10)
+AICTabI <- AICc(mod.null, mod_Islay_ran, mod_Islay_ran2, mod_Islay_ran3, mod_Islay_ran4, mod_Islay_ran5, mod_Islay_ran10)
+AICTabI
 
 ## get the summary from the best model
-summary(mod_Islay_ran)
-confint(mod_Islay_ran)
+summary(mod_Islay_ran10)
+confint(mod_Islay_ran10)
 
 
 #------------------------------#
@@ -592,7 +589,7 @@ confint(mod_Islay_ran)
 #------------------------------#
 
 ## check residuals vs predicted values
-plot(predict(mod_Islay_ran), resid(mod_Islay_ran, type = "deviance"))
+plot(predict(mod_Islay_ran10), resid(mod_Islay_ran10, type = "deviance"))
 
 ## can get the following model checks to work if treat individual ID as a frailty term instead of a random effect
 mod_Islay_check  <-  coxph(Surv ~ Gr10precip + Comp1 + cutoff + sum_precip + avg_temp + laying_centre + Green_centre + year + frailty(ID), 
@@ -608,10 +605,10 @@ ggcoxzph(cox.zph(mod_Islay_check)) #  For each covariate it produces plots with 
 
 
 ## get the estimates and confidence intervals from the models
-Ests2 <- data.frame(summary(mod_Islay_ran)$coefficients)
-Ests2 <- Ests2 %>% cbind(confint(mod_Islay_ran)) %>% dplyr::rename(Estimate = `summary.mod_Islay_ran..coefficients`)
-rownames(Ests2) <- c("ArrPrecip", "Clim", "Precip(t)", "Temp(t)",
-                    "Inc", "Arrival", "year[2020]", "year[2021]")
+Ests2 <- data.frame(summary(mod_Islay_ran10)$coefficients)
+Ests2 <- Ests2 %>% cbind(confint(mod_Islay_ran10)) %>% dplyr::rename(Estimate = `summary.mod_Islay_ran10..coefficients`)
+rownames(Ests2) <- c("Arrival Precipitation", "Arrival Climate PCA", "Nesting Precipitation", "Nesting Temperature",
+                    "Arrival Date", "Year [2020]", "Year [2021]")
 
 ## make a forest plot fo the model estimates
 Ests2 <- Ests2 %>% 
@@ -619,6 +616,7 @@ Ests2 <- Ests2 %>%
   mutate(Param = rev(rownames(Ests2)),
          Sig = ifelse( (`2.5 %` >0 & `97.5 %` >0) | (`2.5 %` <0 & `97.5 %` <0), "red", "grey"))
 
+## create forest plot
 Islay <- ggplot(Ests2) +
           geom_vline(xintercept = 0, linetype = "dashed", alpha =0.5) +
           geom_errorbarh(aes(y=Param, xmin= `2.5 %`, xmax=`97.5 %`), height = 0.2, size =0.5) +
@@ -626,7 +624,7 @@ Islay <- ggplot(Ests2) +
           theme_bw() +
           ylab("") +
           xlim(-2.5, 2.5) +
-          annotate(geom="text", x=2.25, y=8.2, label="Islay",color="#0072B2", size =7) +
+          annotate(geom="text", x=-2.35, y=7.3, label="Islay",color="#0072B2", size =7) +
           scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
           theme(panel.grid.minor.y = element_blank(),
                 panel.grid.major.x = element_blank(),
@@ -636,9 +634,14 @@ Islay <- ggplot(Ests2) +
                 axis.text=element_text(size=14), 
                 legend.text=element_text(size=12),
                 panel.grid.minor.x = element_blank(),
-                legend.position = "none") +
-          add_phylopic(goose_img, x=-2.2, y=2, ysize = 1.5, alpha=1, color="#0072B2")
+                legend.position = "none")
 
+
+
+
+#----------------------------------------#
+#### 7.8 Add county outlines to plots ####
+#----------------------------------------#
 
 ## save the plot as a png
 ggarrange(Wexf, Islay, ncol=1, nrow=2)
@@ -647,11 +650,32 @@ ggsave("Paper Plots/Figure 4- Nest survival forest plot.png",
 
 
 
+## Read figure back in
+fig<- image_read("Paper Plots/Figure 4- Nest survival forest plot.png")
+
+## import png images for plot
+Ire <- image_read("Pics/Ireland_Outline.png")
+Ire2 <- Ire %>% image_scale("400x400") 
+
+Scot <- image_read("Pics/Scotland_Outline.png")
+Scot2 <- Scot %>% image_scale("400x400") 
+
+GWfG <- image_read("Pics/whitefrontedgoose.png")
+GWfG2 <- GWfG %>% image_scale("450x450") %>% image_flop()
+
+## add country outlines
+a <- image_composite(fig, Ire2, offset = "+740+1050")
+
+b <- image_composite(a, Scot2, offset = "+740+2700")
+
+## save this image
+image_write(b, "Paper Plots/Figure 4- FINAL Nest survival forest plot.png")
+
 
 
 
 #-------------------------------------#
-#### 7.8  Model Sub-pop difference ####
+#### 7.9  Model Sub-pop difference ####
 #-------------------------------------#
 
 

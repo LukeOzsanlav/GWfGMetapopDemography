@@ -1,14 +1,13 @@
 ## Luke Ozsanlav-Harris
 
-## Run binomial GLMs to determine if any climatic factors predict breeding propensity and success in female GWfG
+## Run binomial GLMs to determine if any climatic factors and phenolgoy predict breeding propensity and success in female GWfG
 
 ## Created: 26/08/2020
 ## Updated: 19/08/2022
+## Updated for review: 23/03/2023
 
-
-## packages required
-pacman::p_load(tidyverse, data.table, lme4, DHARMa, MuMIn, glmmTMB)
-
+## loadpackages required
+pacman::p_load(tidyverse, data.table, lme4, DHARMa, MuMIn, glmmTMB, ltm)
 
 
 #------------------------------------#
@@ -99,6 +98,10 @@ Inc_acc2 <- inner_join(Inc_acc, Roll_sub, by = c("Tag_year", "yday"))
 #### 4. Binomal GLM for attempt/defer of breeding
 #-----------------------------------------------#
 
+#---------------------------#
+#### 4.1 Format the data ####
+#---------------------------#
+
 ## re-scale the explanatories
 defer_sc <- Inc_acc # rename main data set for later use
 defer_sc <- defer_sc %>% 
@@ -114,19 +117,42 @@ correlation_matrix1 <- cor(test1) # can't have Green centre and Green yday, Gree
 ## Make sure explanatories correct object class
 defer_sc$year <- as.factor(defer_sc$year)
 
-## define popualtion column
+## define population column
 defer_sc$sub_pop <- ifelse(defer_sc$Ringing.location == "WEXF" | defer_sc$Ringing.location == "SESK", "HVAN", "LOWLANDS")
 
 
-## run the binomial GLM
-def_model_ran <- glmmTMB(attempt ~  Comp1 + Gr10precip+ Green_centre + sub_pop + year + (1|ID),
-                 data = defer_sc,
-                 family = binomial(link = "logit"))
+#------------------------#
+#### 4.2 Data Summary ####
+#------------------------#
+
+## get the summary of the data used in these models
+Sum <- as.data.frame(table(defer_sc$ID))
+table(Sum$Freq)
+
+
+#--------------------------#
+#### 4.3 Run the models ####
+#--------------------------#
+
+## run the binomial GLM for deferal without sub-population
+def_model <- glmmTMB(attempt ~  Comp1 + Gr10precip + Green_centre + year + (1|ID),
+                      data = defer_sc,
+                      family = binomial(link = "logit"))
+## examine model
+summary(def_model)
+drop1(def_model, test = "Chi") # Liklihood ratio test, no terms significant
+confint(def_model)
+
+
+## run the binomial GLM for defer with only sub-popualtion
+def_comp <- glmmTMB(attempt ~  sub_pop + year + (1|ID),
+                      data = defer_sc,
+                      family = binomial(link = "logit"))
 
 ## examine model
-summary(def_model_ran)
-drop1(def_model_ran, test = "Chi") # Liklihood ratio test, no terms significant
-confint(def_model_ran)
+summary(def_comp)
+drop1(def_comp, test = "Chi") # Liklihood ratio test, no terms significant
+confint(def_comp)
 
 
 ## test model assumptions using DHARMa
@@ -163,15 +189,14 @@ msdef_sub # only retained intercept only model
 
 
 #--------------------------------#
-#### 4.1 Plot model estimates ####
+#### 4.4 Plot model estimates ####
 #--------------------------------#
 
-
 ## get the estimates and confidence intervals from the models
-Ests <- as.data.frame(confint(def_model_ran)) %>% 
+Ests <- as.data.frame(confint(def_model)) %>% 
         slice(., 1:(n()-1))
-rownames(Ests) <- c("Intercept", "Clim", "ArrPrecip", "Arrival", "Pop", 
-                     "year[2019]", "year[2020]", "year[2021]")
+rownames(Ests) <- c("Intercept", "Arrival Climate PCA", "Arrival Precipitation", "Arrival Date",
+                     "Year [2019]", "Year [2020]", "Year [2021]")
 
 ## make a forest plot fo the model estimates
 Ests <- Ests %>% 
@@ -187,7 +212,7 @@ Def <- ggplot(Ests) +
   geom_point(aes(y=Param, x= Estimate, color = Sig), size = 2.5) +
   theme_bw() +
   ylab("") +
-  xlim(-10.2, 9) +
+  xlim(-10.5, 11.4) +
   scale_color_manual(values=c("#B2BABB", "#E74C3C")) +
   theme(panel.grid.minor.y = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -202,7 +227,7 @@ Def <- ggplot(Ests) +
 Def
 
 ## save the plot as a png
-ggsave("Paper Plots/Supp Fig 3- Breeding Deferal forest plot.png",
+ggsave("Paper Plots/Supp Fig 8- Breeding Deferal forest plot.png",
        width = 22, height = 20, units = "cm")
 
 
@@ -218,9 +243,11 @@ ggsave("Paper Plots/Supp Fig 3- Breeding Deferal forest plot.png",
 #-------------------------------------#
 
 ## filter out birds that did not attmept to breed
-breeders <- dplyr::filter(Inc_acc, is.na(attempt_start) == F)
+# breeders <- dplyr::filter(Inc_acc, is.na(attempt_start) == F)
+breeders <- Inc_acc
 
 ## set response as correct class 
+breeders$success24 <- ifelse(is.na(breeders$success24 ==T), 0, breeders$success24)
 breeders$success24 <- as.factor(breeders$success24)
 breeders$year <- as.factor(breeders$year)
 
@@ -242,29 +269,33 @@ correlation_matrix2 <- cor(test2) # Note: breedng lat has moderate negative corr
 ## assign sub-population
 breed_sc$sub_pop <- ifelse(breed_sc$Ringing.location == "WEXF" | breed_sc$Ringing.location == "SESK", "HVAN", "LOWLANDS")
 
+## Check if other variables differ between levels of sub-population
+biserial.cor(breed_sc$Comp1, breed_sc$sub_pop)
+biserial.cor(breed_sc$Gr10precip, breed_sc$sub_pop)
+biserial.cor(breed_sc$Green_centre, breed_sc$sub_pop)
+
 
 
 #-----------------------------------#
 #### 5.2 Run model and do checks ####
 #-----------------------------------#
 
-## run the binomial GLM with 24 days as success cut off
-breed_mod24 <- glm(success24 ~ Comp1 + Gr10precip + laying_centre + Green_centre + sub_pop + year ,
+## Model incubation success for both sub-populations together
+breed_mod <- glmmTMB(success24 ~ Comp1 + Gr10precip + Green_centre + year + (1|ID),
                    data = breed_sc,
                    family = binomial(link = "logit"))
+summary(breed_mod)
+drop1(breed_mod, test = "Chi")
+confint(breed_mod)
 
-## can't add year in here for some reason
-breed_mod24_ran <- glmmTMB(success24 ~ Comp1 + Gr10precip + laying_centre +  Green_centre + sub_pop + year + (1|ID),
-                   data = breed_sc,
-                   family = binomial(link = "logit"))
+## Comparison model between sub-populations
+breed_comp <- glmmTMB(success24 ~ sub_pop + year + (1|ID),
+                       data = breed_sc,
+                       family = binomial(link = "logit"))
+summary(breed_comp)
+drop1(breed_comp, test = "Chi")
+confint(breed_comp)
 
-## chekc AICc of models
-AICc(breed_mod24); AICc(breed_mod24_ran)
-
-## get paramater estimates
-summary(breed_mod24_ran)
-drop1(breed_mod24_ran, test = "Chi") #liklihood ratio test
-confint(breed_mod24_ran)
 
 
 ## check model assumptions with DHARMa
@@ -293,10 +324,10 @@ testResiduals(simulationOutput24) # not violated
 
 
 ## get the estimates and confidence intervals from the models
-Ests2 <- as.data.frame(confint(breed_mod24_ran)) %>% 
+Ests2 <- as.data.frame(confint(breed_mod)) %>% 
          slice(., 1:(n()-1))
-rownames(Ests2) <- c("Intercept", "Clim", "ArrPrecip", "Inc", "Arrival", "Pop", 
-                     "year[2019]", "year[2020]", "year[2021]")
+rownames(Ests2) <- c("Intercept", "Arrival Climate PCA", "Arrival Precipitation", "Arrival Date",
+                     "Year [2019]", "Year [2020]", "Year [2021]")
 
 ## make a forest plot fo the model estimates
 Ests2 <- Ests2 %>% 
@@ -328,7 +359,7 @@ Succ
 
 
 ## save the plot as a png
-ggsave("Paper Plots/Supp Fig 4- Breeding success forest plot.png",
+ggsave("Paper Plots/Supp Fig 9- Breeding success forest plot.png",
        width = 22, height = 20, units = "cm")
 
 

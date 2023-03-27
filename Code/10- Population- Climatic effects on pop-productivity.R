@@ -10,8 +10,6 @@ library(dplyr)
 library(purrr)
 
 
-
-
 #-------------------------------------------#
 ## 1. Calculate breeding Phenology dates ####
 #-------------------------------------------#
@@ -27,7 +25,6 @@ laying <- median(yday(Inc$attempt_start[is.na(Inc$attempt_start) == F]))
 
 ## calculate median hatching date (use 24 days as cut off for success)
 hatch <- laying + 25
-
 
 
 
@@ -50,8 +47,6 @@ clim$precip <- ifelse(clim$precip < 0.00005, 0, clim$precip)
 ## Convert units of climate data
 clim$temp <- clim$temp - 273.15 # convert to degrees centigrade
 clim$precip <- clim$precip * 1000 # was measured in m so divide by 1000 to get to mm
-
-
 
 
 
@@ -112,8 +107,6 @@ Clim_period$All_freeze <- (Clim_period$pre_hatch_freeze + Clim_period$post_hatch
 
 
 
-
-
 #------------------------------------------------------#
 #### 4. Read in the productivity and snow melt data ####
 #------------------------------------------------------#
@@ -126,12 +119,9 @@ colnames(Productiv)
 setnames(Productiv, old = c("data_year", "Ringing.location"), new = c("year", "Ringing_loc"))
 
 
-
 ## Join productivity and climate data
 Clim_period2 <- inner_join(Clim_period, Productiv, by = c("year", "Ringing_loc"))
 stopifnot(nrow(Clim_period)==nrow(Clim_period2)) # check the join worked properly
-
-
 
 
 
@@ -145,7 +135,6 @@ Clim_period2$pop_trend <- ifelse(Clim_period2$year > 1999, "pop decline", "pop i
 # p1 <- ggplot(Clim_period2, aes(x= All_temp, y= Perc_young, colour = pop_trend)) + geom_point() + facet_wrap(~Ringing_loc + pop_trend )
 # p2 <- ggplot(Clim_period2, aes(x= All_precip, y= Perc_young, colour = pop_trend)) + geom_point() + facet_wrap(~Ringing_loc + pop_trend )
 # p3 <- ggplot(Clim_period2, aes(x= All_freeze, y= Perc_young, colour = pop_trend)) + geom_point() + facet_wrap(~Ringing_loc + pop_trend )
-
 
 
 
@@ -293,7 +282,10 @@ IPrePost <- gls(Young ~ pre_hatch_freeze*Trend + post_hatch_precip*Trend, correl
 
 
 ## compare the AICc of all the models
-AICc(Null, IAll, IPre, IPost, IAllPost, IAllPre, IPostAll, IPreAll, IPostPre, IPrePost)
+AICI <- AICc(Null, IAll, IPre, IPost, IAllPost, IAllPre, IPostAll, IPreAll, IPostPre, IPrePost)
+AICI <- arrange(AICI, AICc); AICI$delta <- AICI$AICc - AICI$AICc[1]
+AICI$AICc <- round(AICI$AICc, digits = 2); AICI$delta <- round(AICI$delta, digits = 2)
+AICI
 model_performance(IAll); model_performance(IPre); model_performance(IPost)
 
 
@@ -315,8 +307,8 @@ E2 <- residuals(IAll1, type = "normalized")
 plot(acf(E2, plot = F), main="Islay- First Order Autocorrelation Term")
 
 ## save autocorrelation plot
-png(filename = "Paper Plots/Supp Fig 2- ACF plots Islay.png", res = 300,
-    width = 650, height = 480)
+# png(filename = "Paper Plots/Supp Fig 5- ACF plots Islay.png", res = 300,
+#     width = 650, height = 480)
 
 
 
@@ -333,16 +325,11 @@ Clim_Islay$Trend <- relevel(as.factor(Clim_Islay$Trend), "Inc")
 IAll2 <- gls(Young ~ Trend*All_freeze + All_precip*Trend, correlation = corAR1(), data = Clim_Islay, method = "ML")
 summary(IAll2);confint(IAll2)
 
-## Look for trends in the variable of interest
-#Trend1 <- gls(All_freeze ~ year, correlation = corAR1(), data = Clim_Islay)
-#top_mod_effects <- effects::predictorEffects(Trend1); plot(top_mod_effects)
-#summary(Trend1)
-
 ## Use dredge on the top model
-options(na.action = "na.fail") 
-Ims2 <- MuMIn::dredge(IAll, trace = 2, rank = "AICc")
-Ims2_sub <- subset(Ims2, !nested(.), recalc.weights=T) ## this bit of code stops nested models being included in the subst of models for av
-Ims2_sub <- subset(Ims2_sub, delta < 6, recalc.weights=T)
+# options(na.action = "na.fail") 
+# Ims2 <- MuMIn::dredge(IAll, trace = 2, rank = "AICc")
+# Ims2_sub <- subset(Ims2, !nested(.), recalc.weights=T) ## this bit of code stops nested models being included in the subst of models for av
+# Ims2_sub <- subset(Ims2_sub, delta < 6, recalc.weights=T)
 
 
 
@@ -438,7 +425,6 @@ I2 <- ggplot(mapping=aes(x= All_precip, y = Young, group = Trend, colour = Trend
 
 
 
-
 #----------------------------------#
 #### 6.5 Run models for Wexford ####
 #----------------------------------#
@@ -481,7 +467,10 @@ WPrePost <- gls(Young ~ pre_hatch_freeze*Trend + post_hatch_precip*Trend, correl
 
 
 ## compare the AWCc of all the models
-AICc(Null, WAll, WPre, WPost, WAllPost, WAllPre, WPostAll, WPreAll, WPostPre, WPrePost)
+AICW <- AICc(Null, WAll, WPre, WPost, WAllPost, WAllPre, WPostAll, WPreAll, WPostPre, WPrePost)
+AICW <- arrange(AICW, AICc); AICW$delta <- AICW$AICc - AICW$AICc[1]
+AICW$AICc <- round(AICW$AICc, digits = 2); AICW$delta <- round(AICW$delta, digits = 2)
+AICW
 model_performance(WPre)
 
 ## For the best model, check the autocorrelation structure
@@ -500,8 +489,8 @@ E2 <- residuals(WAll1, type = "normalized")
 plot(acf(E2, plot = F), main="Wexford- First Order Autocorrelation Term")
 
 ## save autocorrelation plot
-png(filename = "Paper Plots/Supp Fig 3- ACF plots Wexf.png", res = 300,
-    width = 650, height = 480)
+# png(filename = "Paper Plots/Supp Fig 6- ACF plots Wexf.png", res = 300,
+#     width = 650, height = 480)
 
 
 
@@ -800,12 +789,6 @@ WP <- ggplot() +
         annotate(geom="text", x= 2015.5, y= 89, label="Wexford", color="#D55E00", size =8)
 
 
-
-
-
-
-
-
 #-----------------------------#
 #### 7.3 Combine all plots ####
 #-----------------------------#
@@ -815,7 +798,7 @@ ggarrange(IT, WT, IP, WP, nrow=2, ncol = 2)
 
 
 ## save the plot
-ggsave("Paper Plots/Supp Fig 5- Climatic trends.png",
+ggsave("Paper Plots/Supp Fig 10- Climatic trends.png",
        width = 36, height = 30, units = "cm")
 
 

@@ -39,7 +39,7 @@ Pop_plot <- ggplot(Pop_counts2,aes(x=Pop_counts.spring, y = Count, group = Popul
             theme(panel.grid.major.y = element_blank(), panel.grid.minor.y = element_blank(), 
                   legend.position = c(0.90,0.88), axis.text=element_text(size=13), axis.title=element_text(size=17), 
                   plot.title = element_text(size=16, face="bold"), panel.grid.major.x = element_blank(), 
-                  panel.grid.minor.x = element_blank()) + 
+                  panel.grid.minor.x = element_blank(), legend.text = element_text(size=14), legend.title = element_text(size=15)) + 
             ylim(0, 36000) +  
             scale_colour_manual(values=c("#009E73", "#0072B2", "#D55E00")) +
             geom_vline(xintercept = 1999, linetype="dashed", color = "grey", size=1.25) +
@@ -75,6 +75,6 @@ Young_plot <- ggplot(young2, aes(x=data_year, group = Ringing.location, colour =
 
 
 ## combine the 2 plots and save as a PNG in the correct place
-ggarrange(Pop_plot, Young_plot, ncol=2, nrow=1)
-ggsave("Paper Plots/Figure 1- pop trends.png", 
-       width = 32, height = 15, units = "cm")
+ggarrange(Pop_plot, Young_plot, ncol=1, nrow=2)
+ggsave("Paper Plots/Figure 2- pop trends.png", 
+       width = 20, height = 32, units = "cm")
