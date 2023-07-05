@@ -1,6 +1,6 @@
-# Code for 'Differing drivers of decline within a metapopulation has implications for future conservation'
+# Code for 'Differing drivers of decline within a migratory metapopulation has implications for future conservation'
 
-This repository holds the code for a publication that is submitted to *Ecology and Evolution* entitled; 'Differing drivers of reproductive output within metapopulations has conservation implications'. This paper examines at the drivers of reproductive success across two sub-populations of Greenland White-fronted goose *Anser ablifrons flavirostris*. The demography of the sub-populations differed as well as the environmental drivers and therefore different conservation measures will likely be required for the two sub-population to prevent further population decline.
+This repository holds the code for a publication in *Ecology and Evolution* entitled; 'Differing drivers of decline within a migratory metapopulation has implications for future conservation'. This paper examines at the drivers of reproductive success across two sub-populations of Greenland White-fronted goose *Anser ablifrons flavirostris*. The demography of the sub-populations differed as well as the environmental drivers and therefore different conservation measures will likely be required for the two sub-population to prevent further population decline.
 
 <img src="Pics/whitefrontedgoose.png" id="id" class="class" width=25% height=25% > 
 
@@ -27,9 +27,9 @@ MS submitted to *Journal of Animal Ecology* 19/12/2022
 
 MS resubmitted to *Ecology and Evolution* 07/01/2023
 
-Major revisions received 15/03/2023
+*Ecology and Evolution* Major revisions received 15/03/2023
 
-Inital Acceptance 27/06/2023
+*Ecology and Evolution* Inital Acceptance 27/06/2023
 
 
 
@@ -51,9 +51,10 @@ Inital Acceptance 27/06/2023
 
 ## Abstract 📚
 
-1.	Researchers generally ascribe demographic drivers in a single or few sub-populations and presume they are representative. With this information, practitioners implement blanket conservation measures across metapopulations to reverse declines. However, such approaches may not be appropriate in circumstances where sub-populations are spatiotemporally segregated and exposed to different environmental variation. 
+1.	Researchers generally ascribe demographic drivers in a single sub-populations and presume they are representative. With this information, practitioners implement blanket conservation measures across metapopulations to reverse declines. However, such approaches may not be appropriate in circumstances where sub-populations are spatiotemporally segregated and exposed to different environmental variation. 
 2.	The Greenland White-fronted Goose Anser albifrons flavirostris is an Arctic-nesting migrant that largely comprises two sub-populations (delineated by northerly and southerly breeding areas in west Greenland). The metapopulation has declined since 1999 but this trend is only mirrored in one sub-population and the causes of this disparity are unclear. Here we compare the drivers and trends of productivity in both sub-populations using population- and individual-level analysis. 
 3.	We examined how temperature and precipitation influenced population-level reproductive success over 37 years and whether there was a change in the relationship when metapopulation decline commenced. In addition, we used biologging devices to remotely classify incubation events for 86 bird-years and modelled how phenology and environmental conditions influenced individual-level nest survival. 
 4.	Correlations between reproductive success and temperature/precipitation on the breeding grounds have weakened for both sub-populations. This has resulted in lower reproductive success for the northerly, but not southerly breeding sub-population, which at the individual-level appears to be driven by lower nest survival. Earlier breeding ground arrival and less precipitation during incubation increased nest survival in the northerly breeding population, while no factors examined were important for the southerly breeding sub-population. This suggests reproductive success is now driven by different factor(s) in the two sub-populations.
 5.	Demographic rates and their environmental drivers differ between the sub-populations examined here and consequently we encourage further decomposition of demography within metapopulations. This is important for conservation practitioners to consider as bespoke conservation strategies, targeting different limiting factors, may be required for different sub-population. 
+
 
