@@ -31,6 +31,8 @@ MS resubmitted to *Ecology and Evolution* 07/01/2023
 
 *Ecology and Evolution* Inital Acceptance 27/06/2023
 
+*Ecology and Evolution* Published 14/07/2023 [https://doi.org/10.1002/ece3.10281](https://doi.org/10.1002/ece3.10281)
+
 
 
 ## [Code description](Code) 👨‍💻
